@@ -55,3 +55,7 @@ I 52320 0.010 -0.031 9.809 0.0009 -0.0006 0.0003
 ## 1 step の決め方（`SerialPlant.step(cmd, dt)`）
 
 指令を送り、MCU 時刻で `reset からの累計 dt` に達するサンプルが来るまで読み、その最後の観測を返す。dt を MCU 時刻で積むので、PC 側の遅れで時間軸がずれない。CSV（`LOG_COLUMNS`）は 1 step = 1 行（その step の指令と終わりの観測）。
+
+## PC 側のコマンド
+
+`python -m physlearn.link` の `still`（静止ログ）・`id`（同定の実験）・`jog`（少し回して gz の平均）・`run`（PI の閉ループと `control.SPEC` の合否）。どれもこの取り決めの `M` と `S` だけを使う。使い方は 03 章 3.6 と 3.9。

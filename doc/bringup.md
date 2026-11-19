@@ -72,6 +72,9 @@
 - [ ] 端末（03 章 3.5）で `M 0.3 0.3` → 両輪が**前**に回り、約 0.2 秒で止まる【`WATCHDOG_MS = 200`】。
   逆なら: その側の IN1/IN2 を入れ替える（スケッチは変えない）。
 - [ ] `M 0.3 -0.3` → 右が前・左が後ろ（上から見て反時計回りの向き）【取り決め: 左 = −u、右 = +u で u > 0 が左旋回、03 章 3.6】。
+- [ ] 符号を PC 側からも確かめる（偽の XIAO で確かめた。実機では未確認）: `uv run python -m physlearn.link jog --port /dev/ttyACM0 --axes <段 3 の値> --right 0.3` と `--left 0.3`。
+  0.5 s（`--seconds`、上限 1 s）だけ回して止め、後半の gz の平均を出す。基準: 右だけ → gz 正、左だけ → gz 負（`SafetyGate` を通す。duty は ±`DUTY_MAX` まで）。
+  偽の XIAO では `+0.582` と `-0.419` rad/s（バイアス 0.08 込み）。
 - [ ] `M abc` → `# ERR bad line`、回らない【03 章 3.5】。
 - [ ] duty の上限: `M 1 1` と `M 0.6 0.6` で回り方が同じに見える【`DUTY_MAX = 0.6`】。目で見るだけなので弱い確かめ。オシロがあれば D0 の PWM のデューティ比 60% 以下・周期 約 62.7 kHz【`HardwarePWM.cpp`、監査】。
 - [ ] どこまで小さい duty で回り出すかを `M 0.05 0.05`、`M 0.1 0.1` … で見る。比べる先: 公称デッドバンド 0.05【`Params.deadband`】。
@@ -97,8 +100,13 @@
 
 - [ ] `uv run physlearn eval --params log/params_real.json` で閉ループ時定数 `tc` を選ぶ（[06 章](textbook/06-sim2real.md)）。
   基準: 仕様を満たす割合が高い `tc`。仕様は整定 ≤ 0.6 s・行き過ぎ ≤ 10%・定常誤差 ≤ 0.05 rad/s【`control.SPEC`】。
-- [ ] 実機で閉ループを回す。**いまは実機で PI を回す CLI が無い**（`link` は `still` と `id` だけ）。`control.run` に `link.SerialPlant` を渡す短いスクリプトが要る。書いた人はここに コマンドを足す。
-- [ ] 基準: 実機の応答で `control.SPEC` を満たす。最初は車輪を浮かせて、次に床で。
+- [ ] 実機で閉ループを回す（偽の XIAO で確かめた。実機では未確認）:
+  `uv run python -m physlearn.link run --port /dev/ttyACM0 --axes <段 3 の値> --params log/params_real.json --out log/run.csv`
+  ゲインは `loop-demo` と同じく `randomize.tune` で決める（`--tc` で手で与えてもよい）。+3 → −3 rad/s を 2 s ずつ、間に 1 s 止める。
+  正味の回転は ほぼ 0、片道は 3 × 2 = 6 rad ≈ 1 回転（見積もり）。`--target` の上限 5 rad/s、`--seconds` の上限 3 s。
+- [ ] 基準: 2 回とも `仕様 OK`（`control.SPEC`: 整定 ≤ 0.6 s・行き過ぎ ≤ 10%・定常偏差 ≤ 0.05 rad/s）。最初は車輪を浮かせて、次に床で。
+  評価は gz − 同定したバイアス。真の角速度ではないので、バイアスがずれていても定常偏差に出ない（07 章「実機の経路で 1 周」）。
+  安全ゲートが作動したら（`|gz| > 15`）、止めて例外で終わる。
 
 ## 9 結果を sim と文書に戻す
 
