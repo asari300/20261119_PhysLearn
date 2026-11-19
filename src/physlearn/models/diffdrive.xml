@@ -1,0 +1,48 @@
+<!--
+  2 輪差動の小さな車体。単位は SI (m, kg, s, rad)。
+  車体 0.25 kg、車輪 0.02 kg x 2（合計 0.29 kg）。車輪半径 0.03 m、トレッド 0.10 m。
+  車軸は車体の中心 (x = 0)。前後に摩擦なしのキャスター球 (x = +-0.05 m)。
+  モーター: トルク = 0.05 * duty - 0.05/30 * 車輪角速度 [N m]
+    （停動トルク 0.05 N m、無負荷 30 rad/s ≈ 290 rpm。N20 ギアモーター程度の値）
+  DC モーターは逆起電力で速度に比例してトルクが落ちる。これを general の
+  biastype="affine" (biasprm の 3 番目 = 速度の係数) でそのまま書ける。一次遅れの
+  フィルターと違い、時定数は「車体の慣性 / 速度係数」から決まるので、車体を重くすると遅くなる。
+-->
+<mujoco model="diffdrive">
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+
+  <worldbody>
+    <geom name="floor" type="plane" size="5 5 0.1" friction="1 0.005 0.0001"/>
+
+    <body name="chassis" pos="0 0 0.03">
+      <freejoint/>
+      <geom name="body" type="box" size="0.06 0.045 0.01" mass="0.25"/>
+      <!-- condim と friction は 2 つの geom の大きい方が使われる。priority で床より優先させて摩擦なしにする -->
+      <geom name="caster_front" type="sphere" pos="0.05 0 -0.02" size="0.01" mass="0" condim="1" priority="1"/>
+      <geom name="caster_rear" type="sphere" pos="-0.05 0 -0.02" size="0.01" mass="0" condim="1" priority="1"/>
+      <!-- IMU: 機体座標 x 前・y 左・z 上に合わせる -->
+      <site name="imu" pos="0 0 0"/>
+
+      <!-- 車輪は球: 円柱だと接触点が縁で跳ねて応答がぎざぎざになった -->
+      <body name="left_wheel" pos="0 0.05 0">
+        <joint name="left" type="hinge" axis="0 1 0"/>
+        <geom type="sphere" size="0.03" mass="0.02" friction="1 0.005 0.0001"/>
+      </body>
+      <body name="right_wheel" pos="0 -0.05 0">
+        <joint name="right" type="hinge" axis="0 1 0"/>
+        <geom type="sphere" size="0.03" mass="0.02" friction="1 0.005 0.0001"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- hinge を +y 回りに回すと前進する -->
+    <general name="left" joint="left" ctrlrange="-1 1" ctrllimited="true" gainprm="0.05" biastype="affine" biasprm="0 0 -0.0016667"/>
+    <general name="right" joint="right" ctrlrange="-1 1" ctrllimited="true" gainprm="0.05" biastype="affine" biasprm="0 0 -0.0016667"/>
+  </actuator>
+
+  <sensor>
+    <accelerometer name="acc" site="imu"/>
+    <gyro name="gyro" site="imu"/>
+  </sensor>
+</mujoco>
