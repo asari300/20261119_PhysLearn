@@ -18,8 +18,9 @@ IMU を載せた Seeed Studio XIAO と小さな 2 輪車で、Physical AI の基
 - **実機では一度も動かしていない。** 部品はまだ手元に無い。「実機」の結果はすべて代役（隠しパラメータの sim・MuJoCo・偽の XIAO）のもの。
 - XIAO MG24 Sense 向けは**未コンパイル**。
 - **Isaac Sim / Isaac Lab は実行していない**（WSL2・GPU 無し・RAM 7 GiB）。手引き（[90 章](doc/textbook/90-isaac-sim-guide.md)）だけ。理由は [ADR-0001](doc/adr/0001-sim-stack.md)。
-- **SolidCraft は調査しただけで一度も動かしていない**（発注者への確認待ち）。筐体の設計データ `cad/plate.json` も未実行。
+- **SolidCraft は一度も動かしていない。** 本家と版（`tangency-labs/solidcraft` v0.44.1）、`cad/plate.json` が公式のコマンド表と一致することは監査 2 巡目が一次資料で裏づけた。公式の CLI を落として動かす作業は、この環境の権限の判定で止められ、発注者の許可待ち。
 - モーター定数と車体の寸法は**仮の値**。寸法の置き場は [cad/dimensions.csv](cad/dimensions.csv)。
+- 文書の根拠の監査: 1 巡目は 63 件中 誤り 5（直し済み）、2 巡目は 53 件中 裏づけあり 37・誤り 2（直し中）、3 巡目（配線・電圧まわり）は作業中。記録は [log/review/](log/review/)。
 - 直っていない問題の一覧は [計画の「分かっている問題」](doc/plan/2026-11-19-plan.md#分かっている問題)。
 
 ## 最短の道
