@@ -56,42 +56,26 @@ class HardPlant(SimPlant):
         return replace(obs, ax=obs.ax - w1**2 * self.imu_x, ay=obs.ay + (w1 - w0) / dt * self.imu_x)
 
 
-def replay(p: Params, log: dict, dt: float = 0.01) -> np.ndarray:
-    """ログと同じ指令を雑音なしの sim に流した真のヨー角速度。"""
-    s = SimPlant(replace(p, gyro_noise=0.0, accel_noise=0.0))
-    s.reset()
-    out = []
-    for l, r in zip(log["left"], log["right"]):
-        s.step(Command(l, r), dt)
-        out.append(s.yaw_rate)
-    return np.array(out)
-
-
 def one(name: str, value: float) -> dict:
-    """現象 1 つだけの代役で同定し、同定した sim との残差をステップごとに出す。"""
+    """現象 1 つだけの代役で同定し、14 章の当てはまり診断 (compare.fit / holdout) にかける。"""
+    from physlearn.compare import fit, holdout
     from physlearn.log import as_log
-    from physlearn.sysid import apply, identify, segments
+    from physlearn.sysid import apply, identify
 
     plant = HardPlant(**{name: value})
     log = as_log(sim_log(plant))
     est = identify(log)
-    p = apply(Params(), est)
-    res = log["gz"] - est["gyro_bias"] - replay(p, log)
-    u = (log["right"] - log["left"]) / 2
-    rise, steady = [], []
-    for i, j in segments(u)[1:]:
-        if u[j - 1] != 0:
-            sgn = np.sign(u[j - 1])  # 向きをそろえる: + は「実機のほうが速く回る」
-            rise.append(sgn * res[i : i + 20].mean())  # 最初の 0.2 s
-            steady.append(sgn * res[i + int(0.7 * (j - i)) : j].mean())
-    moving = u != 0
+    f = fit(log, apply(Params(), est))
+    _, test = holdout(log)  # 正の向きで同定し、負の向きで確かめる
+    moving = log["right"] != log["left"]
+    ax = float(log["ax"][moving].mean())
     print(f"--- {name}={value}")
     print("  同定: " + "  ".join(f"{k}={est[k]:.3f}" for k in ("yaw_gain", "motor_tau", "deadband")))
-    print("  残差 gz (rad/s、向きをそろえた。+ は代役のほうが速い)、ステップ順 +0.2 -0.2 +0.35 -0.35 +0.5 -0.5")
-    print("    立ち上がり 0.2 s: " + " ".join(f"{x:+.2f}" for x in rise))
-    print("    定常(後ろ 30%):  " + " ".join(f"{x:+.2f}" for x in steady))
-    print(f"    全体の RMS {np.sqrt((res**2).mean()):.3f}   ax の平均（動いている間）{log['ax'][moving].mean():+.3f} m/s^2   前後の道のり {plant.x:.3f} m")
-    return {"est": est, "rise": rise, "steady": steady, "ax": float(log["ax"][moving].mean())}
+    print(f"  残差 RMS 全体 {f['all']:.3f} 立ち上がり {f['rise']:.3f} 定常 {f['steady']:.3f}（雑音 {f['noise']:.3f}） 負の向きで確かめると {test['all']:.3f}")
+    print("  定常の差（実 - sim、ステップ順）: " + " ".join(f"{s:+.2f}" for u, _, s in f["segments"] if u))
+    print(f"  判定: {f['verdict']}")
+    print(f"  ax の平均（動いている間）{ax:+.3f} m/s^2   前後の道のり {plant.x:.3f} m")
+    return {"est": est, "fit": f, "holdout": test["all"], "ax": ax}
 
 
 def loop(seed: int = 0, n: int = 30) -> None:
