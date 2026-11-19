@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git worktree list:*)",
+      "Bash(git branch --list:*)",
+      "Bash(uv tree:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(python3 .claude/hooks/save_session_log.py --check:*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/save_session_log.py\" 2>/dev/null || true",
+            "async": true,
+            "statusMessage": "セッション記録を保存中"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/save_session_log.py\" 2>/dev/null || true",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
