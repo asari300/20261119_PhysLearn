@@ -14,7 +14,7 @@ import time
 
 from physlearn import HIDDEN
 from physlearn.api import Command
-from physlearn.link import parse_axes
+from physlearn.link import axes_with_equals, parse_axes
 from physlearn.sim import SimPlant
 
 # 以下 3 つは firmware/xiao_imu_drive/xiao_imu_drive.ino の同名の定数と、buf[48]（47 文字 + 終端）から
@@ -107,7 +107,7 @@ def main(argv=None) -> None:
     p.add_argument("--speed", type=float, default=1.0, help="時間の倍率（1 = 実時間 100 Hz）")
     p.add_argument("--plant", choices=["sim", "mujoco"], default="sim", help="sim = HIDDEN の SimPlant")
     p.add_argument("--seed", type=int, default=0)
-    a = p.parse_args(argv)
+    a = p.parse_args(axes_with_equals(argv))  # `--axes -y,x,z` も通す（link と同じ）
     if a.plant == "mujoco":
         from physlearn.mujoco_plant import MujocoPlant  # 任意の依存なので選ばれたときだけ
 
