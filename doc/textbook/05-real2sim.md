@@ -99,6 +99,10 @@ $ cat fixed.json
 }
 ```
 
+![代役のログと同定したモデルの gz の比較](fig/03-stand-in-vs-identified.png)
+
+上の図は、代役のログに、同定して直したパラメータのモデルを重ねたものです。直す前（01 章の図）と違い、2 本の線がほぼ重なります。
+
 （`-0.0` は left = −u に u = 0 を入れた結果で、0 と同じです。）
 
 `--plant mujoco` にすると MuJoCo の車体（08 章）で同じ実験をします。MuJoCo は任意の依存なので `uv sync --extra mujoco` が要ります。
