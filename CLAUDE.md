@@ -24,6 +24,8 @@ cd .git-worktree/<topic> && uv sync
 | `src/physlearn/` | Python パッケージ。境界は `api.py` の `Command` / `Obs` / `Plant` |
 | `firmware/` | XIAO の Arduino スケッチ |
 | `tests/` | pytest の試験 |
+| `cad/` | 寸法の唯一の置き場 `dimensions.csv` と筐体の設計データ |
+| `modelica/` | Modelica のモデル |
 | `doc/plan/` | 計画。変えたら同じコミットで直す |
 | `doc/research/` | 調査の記録。事実ごとに出典 URL と確認日 |
 | `doc/adr/` | 設計判断（状態 / 背景 / 決定 / 結果）。覆すときは消さずに Superseded にする |
