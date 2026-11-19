@@ -14,7 +14,18 @@ def sample(t_ms, a=(0.1, 0.2, 9.8), g=(0.01, 0.02, 0.03)):
 
 def test_encode_clamps_and_formats():
     assert encode_command(Command(0.25, -0.5)) == b"M 0.250 -0.500\n"
-    assert encode_command(Command(2, -3)) == b"M 1.000 -1.000\n"
+    assert encode_command(Command(2, -3)) == b"M 0.600 -0.600\n"  # MCU と同じ DUTY_MAX で切る
+
+
+def test_duty_max_matches_sketch():
+    import re
+    from pathlib import Path
+
+    from physlearn.link import DUTY_MAX
+
+    ino = Path(__file__).parents[1] / "firmware/xiao_imu_drive/xiao_imu_drive.ino"
+    m = re.search(r"const float DUTY_MAX = ([0-9.]+);", ino.read_text())
+    assert float(m.group(1)) == DUTY_MAX
 
 
 def test_decode_roundtrip():
@@ -110,6 +121,41 @@ def test_record_csv(tmp_path):
     assert len(rows) == 1 + 5
     assert float(rows[-1][0]) == pytest.approx(0.05)
     assert rows[-1][-2:] == ["-0.4", "0.4"]
+
+
+def test_record_logs_clipped_duty(tmp_path):
+    port = FakePort([sample(t) for t in range(0, 30, 10)])
+    out = tmp_path / "log.csv"
+    record(SerialPlant(ser=port), [(0.02, Command(0.9, -2))], 0.01, str(out))
+    rows = list(csv.reader(out.open()))
+    assert [r[-2:] for r in rows[1:]] == [["0.6", "-0.6"]] * 2
+
+
+def test_partial_line_is_dropped():
+    port = FakePort([sample(0), b"I 10 0.012 -0.034 9.806 0.0011 -0.0007 1", sample(20)])
+    with SerialPlant(ser=port) as p:
+        p.reset()
+        o = p.step(Command(0, 0), 0.01)
+    assert o.t == pytest.approx(0.02) and o.gz == pytest.approx(0.03)  # 切れた行の gz=1 ではない
+
+
+def test_mcu_time_going_back_stops():
+    port = FakePort([sample(50000), sample(50010)] + [sample(t) for t in range(0, 10000, 10)])
+    with pytest.raises(RuntimeError):
+        with SerialPlant(ser=port) as p:
+            p.reset()
+            p.step(Command(0.3, 0.3), 0.01)
+            p.step(Command(0.3, 0.3), 0.03)
+    assert port.written[-1] == STOP
+    assert sum(w.startswith(b"M") for w in port.written) <= 3
+
+
+@pytest.mark.parametrize("arg", [["--dt", "nan"], ["--dt", "0"], ["--seconds", "-1"], ["--seconds", "inf"]])
+def test_cli_rejects_bad_numbers(arg):
+    from physlearn.link import main
+
+    with pytest.raises(SystemExit):
+        main(["still", "--port", "/dev/null-none", "--out", "x.csv", *arg])
 
 
 def test_id_mode_over_serial(tmp_path, monkeypatch):

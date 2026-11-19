@@ -1,7 +1,7 @@
 # PC ⇔ XIAO シリアルの取り決め
 
 実装: `firmware/xiao_imu_drive/xiao_imu_drive.ino`（MCU 側）、`src/physlearn/link.py`（PC 側）。
-状態: nRF52840 Sense 向け（非 mbed 版コア `Seeeduino:nrf52` 1.1.13）にコンパイルは通った（S019 で IMU の範囲を明示したあとも再確認、58,140 バイト）。MG24 Sense は未コンパイル。**実機ではまだ試していない**。
+状態: nRF52840 Sense 向け（非 mbed 版コア `Seeeduino:nrf52` 1.1.13）にコンパイルは通った（S019 で IMU の範囲を明示したあとも再確認、58,172 バイト）。MG24 Sense は未コンパイル。**実機ではまだ試していない**。
 
 ## 線のこと
 
@@ -14,9 +14,9 @@
 | 行 | 意味 |
 |---|---|
 | `M <left> <right>` | 左右モーターの duty。-1..1、前進が正。例 `M 0.300 -0.300` |
-| `S` | 停止（両輪 duty 0） |
+| `S` | 停止（両輪 duty 0）。末尾の空白は許す |
 
-- MCU は `|duty|` を `DUTY_MAX`（既定 0.6）で切る。PC 側も -1..1 に丸めて送る（|duty| > 1 は ±1 に丸め、最終的な上限は MCU の `DUTY_MAX`）。NaN・無限大は送らず `ValueError` にする（`SerialPlant.step` はそのとき `S` を送る）。MCU も `isfinite` でない行は捨てる。
+- MCU は `|duty|` を `DUTY_MAX`（既定 0.6）で切る。PC 側（`link.DUTY_MAX`、同じ 0.6。試験がスケッチの値と照合する）も同じ値で切って送り、CSV にも切った値を書く。NaN・無限大は送らず `ValueError` にする（`SerialPlant.step` はそのとき `S` を送る）。MCU も `isfinite` でない行は捨てる。
 - **ウォッチドッグ**: 正しい `M` か `S` が 200 ms 来ないと MCU は停止する。走らせ続けたいときは同じ `M` を 200 ms より短い間隔で送り直す（`SerialPlant` は 50 ms ごと）。
 - 起動直後は停止している。
 - duty からピンへ（DRV8835、MODE=GND の IN/IN、fast decay）: duty > 0 は IN1 に PWM・IN2 = 0（正転）、duty < 0 は IN1 = 0・IN2 に PWM（逆転）、0 は両方 0（空転）。ブレーキ (1・1) は使わない。PWM は 8 bit・約 62.7 kHz（nRF52 コアの既定）。
@@ -47,6 +47,9 @@ I 52320 0.010 -0.031 9.809 0.0009 -0.0006 0.0003
 - MCU: 解釈できない行・47 文字を超える行は捨てて `# ERR bad line` / `# ERR line too long` を返す。捨てた行はウォッチドッグを延長しない（＝壊れた行が続けば止まる）。
 - MCU: PC が読まずに送信バッファが埋まったら、その周期のサンプルは捨てる（書き込みで止まってウォッチドッグが効かなくなるのを避けるため）。
 - PC: `I` で始まり 8 個の値がそろい、有限の数で、`t_ms ≥ 0` の行だけを使う。他は捨てる。
+- PC: 行末の `\n` が無い行（読み取りの時間切れで途中までの行）は捨てる。
+- PC: MCU の時刻が前のサンプルより戻ったら（再起動・`millis` の桁あふれ）`RuntimeError` で止める。
+- MCU: `# ERR` の行も、送信バッファに空きが無ければ捨てる（TinyUSB の CDC は接続中に埋まると書き込みで待つため）。
 - PC: 1 秒サンプルが来なければ `TimeoutError`。`SerialPlant` は終了時・例外時に必ず `S` を送る。
 
 ## 1 step の決め方（`SerialPlant.step(cmd, dt)`）

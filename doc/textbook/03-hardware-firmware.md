@@ -83,7 +83,7 @@
   非 mbed 版で IMU が使えない、という記述は無い。IMU の wiki（https://wiki.seeedstudio.com/XIAO-BLE-Sense-IMU-Usage/ 、同時刻）はボード定義を指定していない。
 - ライブラリ 2.0.8 は `TARGET_SEEED_XIAO_NRF52840_SENSE` が定義されていると IMU 用の I2C バス `Wire1` を使い、非 mbed 版のコア 1.1.13 の `variant.h` がこのマクロを定義している（S016 の監査と S019 がソース `LSM6DS3.cpp:35-36`・`variant.h:4` で確認）。
   電源ピン `PIN_LSM6DS3TR_C_POWER` もライブラリが HIGH にする（S009 がソースで確認）。つまり非 mbed 版でも IMU のバスと電源は正しく選ばれる。
-- 非 mbed 版でコンパイルは通る（S019: 58,140 バイト、7%）。**IMU が実際に値を返すかは実機で確かめていない**。
+- 非 mbed 版でコンパイルは通る（S019: 58,172 バイト、7%）。**IMU が実際に値を返すかは実機で確かめていない**。
 - **実機で先に確かめること**: 書き込んだら 3.5 節で `I` の行が流れるかを見る。`# ERR imu not found` が続くなら、mbed 版
   （ボードマネージャの「Seeed nRF52 mbed-enabled Boards」、FQBN は `Seeeduino:mbed:xiaonRF52840Sense`【未確認】）で書き込み直す。
   mbed 版ではこのスケッチをコンパイルしておらず、`analogWrite` の PWM の周波数も上の 62.7 kHz とは違うかもしれない【未確認】。
