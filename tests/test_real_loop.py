@@ -34,13 +34,15 @@ def fake():
 def test_s2r_r2s_s2r_over_serial(fake, capsys):
     with SerialPlant(fake.port) as p:
         _, before = run_loop(p, lambda: design(Params(), TC), 3.0, 2.0)
-        est = identify(as_log(sim_log(p)))
+        rows = sim_log(p)
+        est = identify(as_log(rows))
         fixed = apply(Params(), est)
         _, after = run_loop(p, lambda: design(fixed, TC), 3.0, 2.0)
     # 同じゲインを Python の中で直に（シリアル無しで）回したもの = loop_demo の数値の出どころ
     direct = metrics(*run(SimPlant(HIDDEN, seed=1001), design(fixed, TC))[1:])
     with capsys.disabled():
         print(f"\n前 {before}\n後 {after}\n直 {direct}\n同定 {est}")
+    assert len(rows) == 1700 and abs(est["drift"]) < 0.05  # 同定の実験は 17 s。シリアル越しでも K は前後で変わらない
     assert est["gyro_bias"] == pytest.approx(HIDDEN.gyro_bias, abs=0.01)
     # 「前」も gz では合格に見える: 公称バイアス 0 なので gz を 3 に合わせ、真の角速度は 3 - 0.08。gz で測る限り見えない
     for _, m in after:

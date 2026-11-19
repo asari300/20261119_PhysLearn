@@ -5,7 +5,8 @@ import pytest
 from physlearn import HIDDEN, sim_log
 from physlearn.api import Command
 from physlearn.log import as_log, read_csv, row, write_csv
-from physlearn.sim import Params, SimPlant
+from physlearn.mismatch import HardPlant
+from physlearn.sim import Params, SimPlant, id_experiment
 from physlearn.sysid import apply, identify
 
 
@@ -45,3 +46,22 @@ def test_noise_free_fit_recovers_gain_deadband_tau(tau):
 def test_hidden_noisy_log_gain():
     est = identify(as_log(sim_log(SimPlant(HIDDEN, seed=0))))
     assert est["yaw_gain"] == pytest.approx(8.0, abs=0.1)
+    assert abs(est["drift"]) < 0.03  # 雑音ありでも
+
+
+def test_experiment_shape_and_zero_net_rotation():
+    cmds = id_experiment()
+    assert len(cmds) == 1700 and sum(c.right for c in cmds) == pytest.approx(0, abs=1e-9)
+
+
+def test_drift_is_zero_for_constant_plant_and_negative_for_sagging_battery():
+    quiet = replace(Params(), gyro_noise=0.0, accel_noise=0.0)
+    assert abs(identify(as_log(sim_log(SimPlant(quiet))))["drift"]) < 0.03
+    sag = identify(as_log(sim_log(HardPlant(sag=0.27))))  # 電池の低下で K が後半に下がる
+    assert sag["drift"] < -0.03
+
+
+def test_no_drift_without_repeated_amplitude():
+    log = as_log(sim_log(SimPlant(HIDDEN, seed=0)))
+    n = 1300  # 古い 13 s の実験（同じ振幅が 2 回ずつ）の長さで切る
+    assert "drift" not in identify({c: v[:n] for c, v in log.items()})

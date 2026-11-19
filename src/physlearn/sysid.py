@@ -1,6 +1,6 @@
 """R2S: ログ CSV からジャイロのバイアス・雑音と、ヨー角速度のゲイン・時定数・デッドバンドを推定する。
 
-前提: 指令は区間ごとに一定（`sim.id_experiment` の形）。最初の区間は静止 (0, 0)。
+前提: 指令は区間ごとに一定（`sim.id_experiment` の形）。同じ振幅のステップが 4 回以上あれば、前半と後半の K の比 `drift` も返す。最初の区間は静止 (0, 0)。
 動いたステップが 2 つ未満なら（静止だけのログ）、ジャイロのバイアスと雑音だけを返す。
 旋回成分 u = (right - left) / 2 だけを見る。ゲイン・デッドバンド・時定数は、ログ全体へ一次遅れ
 モデル（`first_order`）を当てはめて決める（τ と d の格子ごとに K を最小二乗で出し、残差が最小の組）。
@@ -71,13 +71,39 @@ def identify(log: dict) -> dict:
     taus = np.geomspace(0.01, 2.0, 400)
     _, k, db, tau = _best(u, t, y, taus, np.arange(0, 0.301, 0.01))
     _, k, db, tau = _best(u, t, y, taus, np.clip(np.arange(db - 0.01, db + 0.0101, 0.001), 0, None))  # 最良の近くを細かく
-    return {
+    out = {
         "gyro_bias": bias,
         "gyro_noise": noise,
         "yaw_gain": float(k),
         "deadband": float(db),
         "motor_tau": float(tau),
     }
+    drift = _drift(u, y, first_order(u, t, 1.0, db, np.array([tau]))[:, 0], segs)
+    if drift is not None:
+        out["drift"] = drift
+    return out
+
+
+def _drift(u, y, m, segs):
+    """同じ振幅のステップが 4 回以上あれば、最初の 2 回と最後の 2 回（と直後の 0 の区間）で K を別々に出し、K後 / K前 - 1。
+
+    m は当てはめたモデルの K = 1 での応答。電池が減るなどして K が途中で変わると 0 から外れる。無ければ None。
+    """
+    amps = {}
+    for n, (_, j) in enumerate(segs):
+        if u[j - 1] != 0:
+            amps.setdefault(round(abs(float(u[j - 1])), 2), []).append(n)
+    runs = [v for v in amps.values() if len(v) >= 4]
+    if not runs:
+        return None
+
+    def gain(n1, n2):  # 区間 n1..n2（n2 の後ろが 0 の区間ならそれも）で y ≈ K m
+        end = n2 + 1 if n2 + 1 < len(segs) and u[segs[n2 + 1][1] - 1] == 0 else n2
+        w = slice(segs[n1][0], segs[end][1])
+        return (m[w] @ y[w]) / (m[w] @ m[w])
+
+    first, last = runs[0][:2], runs[0][-2:]
+    return float(gain(*last) / gain(*first) - 1)
 
 
 def apply(p: Params, est: dict) -> Params:
