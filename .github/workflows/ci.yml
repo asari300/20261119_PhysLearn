@@ -2,6 +2,7 @@
 #   test          Python の試験（uv + pytest）
 #   firmware      XIAO nRF52840 Sense 向けスケッチのコンパイル（必須）
 #   firmware-mg24 XIAO MG24 Sense 向けのコンパイル（次点。落ちても全体は落とさない）
+#   docs          章に貼った出力を走らせ直して比べる（python -m physlearn.docs_check）
 # アクションは今日（2026-11-19）の最新の版に固定した。上げるときは意識して上げる。
 name: CI
 
@@ -29,6 +30,29 @@ jobs:
       # 遅いランナーでは時間切れで落ちうる。失敗時は、落ちた試験だけをもう 1 回回す（--lf。2 回とも落ちたら本物の失敗）。
       # どの試験が揺れたかは 1 回目のログと警告に残る。
       - run: uv run pytest -q || { echo "::warning::pytest が 1 回目に失敗（落ちた試験は上のログ）。落ちた試験だけ回し直す"; uv run pytest -q --lf; }
+
+  docs:
+    # 章の中のコマンドを shell=True でそのまま実行する（docs_check の冒頭の注意）。第三者の PR の章を走らせると
+    # 任意のコードが動くので、main への push と手動実行のときだけ動かす。将来 pull_request を on に足しても動かない形。
+    # permissions は contents: read のまま、シークレットは渡さない。
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # ローカルで全章 23〜37 秒（負荷が高いと 100 秒）+ uv sync。固まったときの上限。
+    timeout-minutes: 15
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv sync --locked --extra mujoco --extra viz
+      # 差があれば失敗。「飛ばした」が増えても気づけるよう、最後に件数を 1 行で出す（表は道具の章ごとの行を足す）。
+      - run: |
+          set -o pipefail
+          rc=0
+          uv run python -m physlearn.docs_check --mujoco | tee docs_check.txt || rc=$?
+          awk -F'\t' '$2 ~ /^一致 [0-9]+$/ { split($2,a," "); split($3,b," "); split($4,c," "); m+=a[2]; d+=b[2]; s+=c[2] }
+                      END { printf "docs_check 合計: 一致 %d / 差 %d / 飛ばした %d\n", m, d, s }' docs_check.txt
+          exit $rc
 
   firmware:
     runs-on: ubuntu-latest

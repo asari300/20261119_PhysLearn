@@ -18,6 +18,8 @@ BRANCH=$(git branch --show-current)
 uv run pytest
 ```
 
+コードの出力が変わる変更をしたときは、先に `uv run python -m physlearn.docs_check --mujoco` を回し、差が出た章を直す（出力は走らせた結果をそのまま貼る。CI の `docs` が main で同じものを見張る）。
+
 ## 2. セッション記録をコピーして伏せ字を検査する
 
 フックは main の `log/local/` に書いている。最新に書き直してからコピーする。
@@ -57,7 +59,7 @@ git -C "$MAIN" merge --no-ff -m "Merge $BRANCH: <要約>" "$BRANCH"
 
 ```bash
 git -C "$MAIN" push origin main
-gh run watch --exit-status               # test / firmware は必須。firmware-mg24 は落ちても全体は落ちない
+gh run watch --exit-status               # test / docs / firmware は必須。firmware-mg24 は落ちても全体は落ちない
 ```
 
 - 公開リポジトリ。4 の漏洩検査を省かない。
