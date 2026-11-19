@@ -42,7 +42,7 @@ uv run physlearn loop-demo   # 1 周の実演（sim → 同定 → ゲイン決�
 | コマンド | かかった時間 | 出力の要点 |
 |---|---|---|
 | `uv sync` | 0.3 秒（キャッシュあり。初回はダウンロードぶん延びる） | numpy, pyserial 3.5, pytest 9.2.0 など |
-| `uv run pytest -q` | 約 4 秒 | `24 passed, 1 skipped` |
+| `uv run pytest -q` | 数十秒 | すべて passed（本数は増えていくので書かない） |
 | `uv run physlearn loop-demo` | 約 5 秒 | 公称の sim で決めたゲインは代役で「仕様 NG」、同定した sim で決め直すと「仕様 OK」 |
 
 ### 1.3 任意の追加
@@ -51,7 +51,7 @@ uv run physlearn loop-demo   # 1 周の実演（sim → 同定 → ゲイン決�
 uv sync --extra mujoco       # MuJoCo 4.x（CPU）。08 章で使う
 ```
 
-- `--extra viz`（図を描く）は S013 が **追加予定**。まだ `pyproject.toml` に無い。
+- `uv sync --extra viz` で図を描く道具（`python -m physlearn.plot`）が入る。
 - MuJoCo の注意【文書】（`doc/research/2026-11-19-software.md`、出典 https://mujoco.readthedocs.io/en/latest/changelog.html ）:
   - 4.0.1 が最新（2026-11-11）。Python 3.10 は対象外になった（本リポジトリは 3.12 以上なので問題ない）。
   - 4.0 で Python パッケージが `mujoco-core` / `mujoco-studio` / `mujoco` に分かれた。3.x を入れていた環境は入れ直しが要ることがある。

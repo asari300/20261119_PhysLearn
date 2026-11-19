@@ -144,7 +144,7 @@ python -m physlearn.compare spread v0.csv v1.csv v2.csv v3.csv
 3. 当てはまりを見る: `python -m physlearn.compare fit id.csv real.json`
 4. 左右差を見る: `python -m physlearn.compare holdout id.csv`
 5. 電池や床を変えて 1〜2 を何回か繰り返し、幅を見る: `python -m physlearn.compare spread real1.json real2.json ...`
-6. 図で見る: `python -m physlearn.plot log id.csv --out fit.png --params real.json`（S023 の図）
+6. 図で見る: `python -m physlearn.plot log id.csv --out fit.png --params real.json`
 
 ポート名は環境で変わります（03 章）。実機での確認は、まだしていません【未確認】。
 
