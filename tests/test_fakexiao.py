@@ -139,3 +139,23 @@ def test_line_parsed_like_sketch(line, ok):
     finally:
         os.close(f.master)
         os.close(f.slave)
+
+
+@pytest.mark.parametrize("axes", [["--axes", "-y,x,z"], ["--axes=-y,x,z"]])
+def test_cli_axes_leading_minus_both_spellings(monkeypatch, capsys, axes):
+    import physlearn.fakexiao as fx
+
+    got = []
+
+    class Stub:
+        port = "stub"
+
+        def __init__(self, plant, a, speed):
+            got.append(a)
+
+        def run(self):
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(fx, "FakeXiao", Stub)
+    fx.main(axes)
+    assert got == ["-y,x,z"]
