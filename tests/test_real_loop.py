@@ -34,13 +34,15 @@ def fake():
 def test_s2r_r2s_s2r_over_serial(fake, capsys):
     with SerialPlant(fake.port) as p:
         _, before = run_loop(p, lambda: design(Params(), TC), 3.0, 2.0)
-        est = identify(as_log(sim_log(p)))
+        rows = sim_log(p)
+        est = identify(as_log(rows))
         fixed = apply(Params(), est)
         _, after = run_loop(p, lambda: design(fixed, TC), 3.0, 2.0)
     # 同じゲインを Python の中で直に（シリアル無しで）回したもの = loop_demo の数値の出どころ
     direct = metrics(*run(SimPlant(HIDDEN, seed=1001), design(fixed, TC))[1:])
     with capsys.disabled():
         print(f"\n前 {before}\n後 {after}\n直 {direct}\n同定 {est}")
+    assert len(rows) == 1700 and abs(est["drift"]) < 0.05  # 同定の実験は 17 s。シリアル越しでも K は前後で変わらない
     assert est["gyro_bias"] == pytest.approx(HIDDEN.gyro_bias, abs=0.01)
     # 「前」も gz では合格に見える: 公称バイアス 0 なので gz を 3 に合わせ、真の角速度は 3 - 0.08。gz で測る限り見えない
     for _, m in after:
@@ -105,3 +107,18 @@ def test_gate_trip_stops(fake):
     finally:
         control.SafetyGate.__init__.__defaults__ = old
     wait_stopped(fake)
+
+
+def test_reset_waits_for_rotation_to_stop(fake, capsys):
+    def spin_then_reset(settle):
+        with SerialPlant(fake.port, settle=settle) as p:
+            p.reset()
+            for _ in range(100):  # 1 s 旋回する（gz は約 2.8 rad/s）
+                p.step(Command(-0.5, 0.5), 0.01)
+            return p.reset()  # 停止を送ったあとの最初の状態
+
+    fast = spin_then_reset(False)
+    assert abs(fast.gz - HIDDEN.gyro_bias) > 0.5  # 待たないと、回っている最中から次の回が始まる
+    slow = spin_then_reset(True)
+    assert slow.t == 0.0 and abs(slow.gz - HIDDEN.gyro_bias) < 0.1  # バイアス 0.08 の個体でも「止まった」と判定できる
+    assert capsys.readouterr().err == ""  # 2 s のタイムアウトの警告は出ていない

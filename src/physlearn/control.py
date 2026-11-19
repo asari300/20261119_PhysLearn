@@ -72,12 +72,13 @@ class SafetyGate:
         return self.prev
 
 
-def run(plant: Plant, ctrl, target: float = TARGET, duration: float = DURATION, dt: float = DT):
+def run(plant: Plant, ctrl, target: float = TARGET, duration: float = DURATION, dt: float = DT, gate=None):
     """閉ループで 1 回走らせる。(ログの行, 評価に使う時系列 t, y) を返す。
 
     y は sim なら真のヨー角速度、実機なら gz（真値が無いので）。
+    gate: 呼び出し側の SafetyGate（走らせたあと gate.tripped を読める）。None なら既定の SafetyGate()。
     """
-    gate = SafetyGate()
+    gate = gate or SafetyGate()
     obs = plant.reset()
     rows, ts, ys = [], [], []
     for _ in range(round(duration / dt)):

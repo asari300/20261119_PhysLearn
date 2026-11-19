@@ -48,3 +48,16 @@ def test_metrics_zero_target_no_division():
     with np.errstate(all="raise"):
         m = metrics(t, np.zeros_like(t), target=0.0)
     assert m["overshoot"] == 0.0 and m["settle"] == 0.0
+
+
+def test_run_accepts_caller_gate():
+    from physlearn.api import Command
+    from physlearn.control import SafetyGate, run
+    from physlearn.sim import SimPlant
+
+    gate = SafetyGate(max_duty=0.3)
+    rows, _, _ = run(SimPlant(), lambda target, obs, dt: Command(-1.0, 1.0), gate=gate)
+    assert max(max(abs(r[7]), abs(r[8])) for r in rows) <= 0.3 and gate.tripped == ""
+    bad = SafetyGate()
+    run(SimPlant(), lambda target, obs, dt: Command(float("nan"), 0.0), gate=bad)
+    assert bad.tripped  # NaN で止まった理由が呼び出し側から読める

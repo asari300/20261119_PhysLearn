@@ -8,6 +8,7 @@
 
 import argparse
 import csv
+import sys
 import time
 from dataclasses import replace
 
@@ -21,6 +22,7 @@ from physlearn.log import write_csv
 BAUD = 115200
 STOP = b"S\n"
 G = 9.80665
+SETTLE_N, SETTLE_GZ, SETTLE_S = 20, 0.05, 2.0  # reset が回転の止まるのを待つ: 直近 20 サンプルが平均から 0.05 rad/s 以内、最大 2 s
 DUTY_MAX = 0.6  # スケッチの DUTY_MAX と同じ（tests/test_link.py が照合）。ログに MCU が実際に出す値を残すため
 
 
@@ -74,10 +76,11 @@ def parse_axes(spec: str) -> np.ndarray:
 class SerialPlant:
     """`Plant` の実機版。with で使うと、終了時・例外時に必ず停止を送る。"""
 
-    def __init__(self, port: str = "", axes: str = "x,y,z", timeout: float = 1.0, ser=None):
+    def __init__(self, port: str = "", axes: str = "x,y,z", timeout: float = 1.0, ser=None, settle: bool = True):
         self.ser = ser if ser is not None else serial.Serial(port, BAUD, timeout=0.05)
         self.rot = parse_axes(axes)
         self.timeout = timeout
+        self.settle = settle  # False なら reset は最初のサンプルで t0 を決める（サンプルを固定した試験用）
         self.t0 = 0.0  # reset 時の MCU 時刻 [s]
         self.t_target = 0.0  # 次に待つ時刻（reset からの秒）。dt を積んで時刻のずれを溜めない
         self.last_cmd = STOP
@@ -112,13 +115,31 @@ class SerialPlant:
                 return Obs(s.t - self.t0, *a, *g)
         raise TimeoutError(f"{self.timeout} 秒間 IMU のサンプルが来ない{err}")
 
+    def _wait_still(self) -> Obs:
+        """停止を送ったあと、回転が止まる（直近 SETTLE_N サンプルの gz が平均から SETTLE_GZ 以内）まで読み、最後のサンプルを返す。
+
+        前の回の回転が残ったまま次の回を始めないため。gz の絶対値でなく平均からの幅で見るのは、
+        ジャイロのバイアスが 0.05 を超える個体（偽の XIAO の HIDDEN は 0.08）でも止まったと判定できるように。
+        SETTLE_S を超えたら警告の行を標準エラーに出して、そのまま続ける。
+        """
+        win, start = [], None
+        while True:
+            s = self._next()
+            start = s.t if start is None else start
+            win = (win + [s.gz])[-SETTLE_N:]
+            if len(win) == SETTLE_N and np.abs(np.array(win) - np.mean(win)).max() < SETTLE_GZ:
+                return s
+            if s.t - start > SETTLE_S:
+                print(f"# 停止を送って {SETTLE_S:g} s 待っても gz が落ち着かない。そのまま始める", file=sys.stderr)
+                return s
+
     def reset(self) -> Obs:
         try:
             self._send(STOP)
             self.ser.reset_input_buffer()
             self.t0 = 0.0
             self.last_mcu_t = -np.inf
-            first = self._next()
+            first = self._wait_still() if self.settle else self._next()
             self.t0 = first.t
             self.t_target = 0.0
             return replace(first, t=0.0)

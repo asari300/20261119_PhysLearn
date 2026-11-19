@@ -12,9 +12,9 @@ G = 9.81
 
 @dataclass(frozen=True)
 class Params:
-    wheel_radius: float = 0.016  # m
-    track: float = 0.08  # m（左右の車輪の間隔）
-    motor_gain: float = 30.0  # 車輪の角速度 rad/s / duty（デッドバンドを除いた分）
+    wheel_radius: float = 0.030  # m（MJCF と同じ。cad/dimensions.csv の「sim の今の値 (MJCF)」。仮の値）
+    track: float = 0.100  # m（左右の車輪の間隔。同上）
+    motor_gain: float = 20.0  # 車輪の角速度 rad/s / duty（デッドバンドを除いた分）
     motor_tau: float = 0.08  # s（一次遅れの時定数）
     deadband: float = 0.05  # duty。これ以下では回らない
     gyro_bias: float = 0.0  # rad/s（gz のバイアス）
@@ -86,11 +86,12 @@ class SimPlant:
 
 
 def id_experiment(dt: float = 0.01) -> list[Command]:
-    """同定用の開ループ指令列（その場旋回、全体 13 s）。静止 1 s のあと、各 1 s のステップと 0 を 1 s ずつ交互に。
+    """同定用の開ループ指令列（その場旋回、全体 17 s）。静止 1 s のあと、各 1 s のステップと 0 を 1 s ずつ交互に。
 
     符号を交互にして正味の回転を 0 にする（USB ケーブルをねじらない）。最大 0.5 はスケッチの DUTY_MAX 0.6 より下。
+    末尾の ±0.35 は最初の ±0.35 と同じ振幅。前後で K が変わったか（電池の低下など）を `sysid.identify` の drift で見る。
     """
     seq = [0.0] * round(1.0 / dt)
-    for u in (0.2, -0.2, 0.35, -0.35, 0.5, -0.5):
+    for u in (0.2, -0.2, 0.35, -0.35, 0.5, -0.5, 0.35, -0.35):
         seq += [u] * round(1.0 / dt) + [0.0] * round(1.0 / dt)
     return [Command(-u, u) for u in seq]
