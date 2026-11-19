@@ -1,0 +1,74 @@
+# CI: main への push と手動実行で動く。
+#   test          Python の試験（uv + pytest）
+#   firmware      XIAO nRF52840 Sense 向けスケッチのコンパイル（必須）
+#   firmware-mg24 XIAO MG24 Sense 向けのコンパイル（次点。落ちても全体は落とさない）
+# アクションは今日（2026-11-19）の最新の版に固定した。上げるときは意識して上げる。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # 擬似端末 (pty) を実時間の 2 倍速で使う試験があり、遅い共有ランナーでは固まりうる。
+    # 固まったときに延々と待たないための上限。
+    timeout-minutes: 15
+    env:
+      MPLBACKEND: Agg # 描画なし（MuJoCo も描画せずに動く）
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3 # Python は uv が .python-version を読む
+      - run: uv sync --locked --extra mujoco --extra viz
+      # tests/test_fakexiao.py と tests/test_real_loop.py は pty を実時間の 2 倍速で使うので、
+      # 遅いランナーでは時間切れで落ちうる。失敗時にもう 1 回だけ回す（2 回とも落ちたら本物の失敗）。
+      - run: uv run pytest -q || { echo "::warning::pytest が 1 回目に失敗。もう 1 回回す"; uv run pytest -q; }
+
+  firmware:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FQBN: Seeeduino:nrf52:xiaonRF52840Sense
+    steps:
+      - uses: actions/checkout@v7.0.1
+      # コンパイルの最後に書き込み用の zip を作るため、python と adafruit-nrfutil が PATH に要る（doc/setup.md 2.3）。
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version-file: .python-version
+      - run: pip install adafruit-nrfutil==0.5.3.post16
+      - uses: arduino/setup-arduino-cli@v2.1.0
+        with:
+          version: 1.6.0
+      - run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
+          arduino-cli core update-index
+          arduino-cli core install Seeeduino:nrf52@1.1.13
+          arduino-cli lib install "Seeed Arduino LSM6DS3@2.0.8"
+      - run: arduino-cli compile --fqbn "$FQBN" firmware/xiao_imu_drive
+
+  firmware-mg24:
+    runs-on: ubuntu-latest
+    # ローカルで一度もコンパイルできていない（コアが約 650 MB）。スケッチの #if が通るかは CI で初めて分かる。
+    continue-on-error: true
+    timeout-minutes: 45
+    env:
+      # protocol_stack=none: 無線を使わない最小のスタック。
+      FQBN: SiliconLabs:silabs:xiao_mg24:protocol_stack=none
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: arduino/setup-arduino-cli@v2.1.0
+        with:
+          version: 1.6.0
+      - run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://siliconlabs.github.io/arduino/package_arduinosilabs_index.json
+          arduino-cli core update-index
+          arduino-cli core install SiliconLabs:silabs@5.0.0
+          arduino-cli lib install "Seeed Arduino LSM6DS3@2.0.8"
+      - run: arduino-cli compile --fqbn "$FQBN" firmware/xiao_imu_drive

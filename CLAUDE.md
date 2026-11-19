@@ -15,7 +15,9 @@ cd .git-worktree/<topic> && uv sync
 - `<topic>` は `sNNN-<英小文字とハイフン>`（例 `s004-sim-core`）。ブランチは `feature/<topic>`、worktree は `.git-worktree/<topic>`（`.gitignore` 済み）。
 - `.venv` を worktree 間で共有・symlink しない。
 - main に未コミットの変更があったら、止めてユーザーに伝える。勝手にコミットも stash もしない。
-- remote は無い。締めは「main に `--no-ff` でマージ」まで。
+- remote は GitHub の公開リポジトリ（`origin`）。締めは「main に `--no-ff` でマージ → `git push origin main` → `gh run watch` で CI の結果を確かめる」。
+- 完全に終わった worktree は、main に取り込み済みで未コミットの変更が無いことを確かめてから `git worktree remove` と `git branch -d` で片付ける。
+- CI（`.github/workflows/ci.yml`、main への push と手動実行）: `test`（`uv sync --locked` + `uv run pytest`）、`firmware`（XIAO nRF52840 Sense 向けスケッチのコンパイル、必須）、`firmware-mg24`（MG24 向け、落ちても全体は落とさない）。
 
 ## 2. ディレクトリの意味
 
@@ -56,4 +58,4 @@ cd .git-worktree/<topic> && uv sync
 2. セッション記録をコピーし、`--check` で取りこぼし 0 件
 3. ステージした差分に、メールアドレス・ホームのパス・トークンが 0 件
 4. 作業記録を数字で仕上げ、feature ブランチにコミット
-5. main に `--no-ff` でマージ
+5. main に `--no-ff` でマージし、`git push origin main`、`gh run watch` で CI が通ることを確かめる（公開リポジトリなので 3 の漏洩検査は省かない）
