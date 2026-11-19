@@ -19,12 +19,14 @@ MuJoCo は任意の依存です。GPU も画面も要りません（この章で
 ```sh
 uv sync --extra mujoco
 uv run --extra mujoco pytest -q tests/test_mujoco_plant.py
-uv run --extra mujoco python -m physlearn.mujoco_plant --out log.csv
+uv run --extra mujoco physlearn sim-log --plant mujoco log.csv
 ```
 
 使った版は `mujoco 4.0.1` です。
-最後のコマンドは、静止 1 秒 → 左 -0.5・右 +0.5 の duty（その場で左旋回）2 秒 → 停止 1 秒 を 0.01 秒刻みで回し、
-`t,ax,ay,az,gx,gy,gz,left,right` の CSV（1 行 = 1 step）を書きます。`--noise` をつけると IMU に雑音とジャイロのバイアス (gz に +0.02 rad/s) を足します。`--duty`・`--dt`・`--seed` も変えられます。
+最後のコマンドは、numpy の sim と同じ同定用の実験（05 章の `id_experiment`。静止 1 秒のあと符号交互のステップ、計 13 秒）を
+安全ゲート越しに 0.01 秒刻みで回し、`t,ax,ay,az,gx,gy,gz,left,right` の CSV（1 行 = 1 step）を書きます。
+IMU には雑音とジャイロのバイアス (gz に +0.02 rad/s) を足してあります。`--seed` で雑音の乱数を変えられます。
+（S007 の版にあった `python -m physlearn.mujoco_plant` の 1 段ステップのログは、同定に使えない形だったので消して、この口に一本化しました。）
 
 Python からは `Plant` として使えます。
 
@@ -59,41 +61,34 @@ obs = plant.step(Command(left=-0.5, right=0.5), dt=0.01)
 
 ## 実際に走らせた結果
 
-上の `python -m physlearn.mujoco_plant --out log.csv`（雑音なし）のログを次で調べました。
+`MujocoPlant` は雑音なしの真のヨー角速度を `yaw_rate` で返します（平らな床なので、雑音を足す前のジャイロ z と同じ）。
+制御の性能はこれで測ります。実機には無い値なので、制御器が見てはいけないのは numpy の sim と同じです。
 
-```sh
-uv run --extra mujoco python - <<'EOF'
-import numpy as np
-d = np.genfromtxt("log.csv", delimiter=",", names=True)
-t, gz = d["t"], d["gz"]
-on = (t > 1.0) & (t <= 3.0); ss = gz[(t > 2.5) & (t <= 3.0)].mean(); print("steady gz %.3f" % ss)
-t63 = t[on][np.argmax(gz[on] >= 0.632 * ss)]; print("t63 after step %.3f s" % (t63 - 1.0))
-off = t > 3.0; t37 = t[off][np.argmax(gz[off] <= 0.368 * ss)]; print("t37 after stop %.3f s" % (t37 - 3.0))
-print("final gz %.2e" % gz[-1], "rest az mean %.4f" % d["az"][t <= 1].mean())
-EOF
-```
-
-出力:
+上のコマンドで書いたログの最初の 2 行（静止中）は次のとおりで、gz に 0.02 前後のバイアスが乗っています。
 
 ```
-steady gz 8.978
-t63 after step 0.080 s
-t37 after stop 0.080 s
-final gz 3.52e-06 rest az mean 9.8100
+t,ax,ay,az,gx,gy,gz,left,right
+0.010000000000000009,0.06520000225650686,0.0473540481564621,9.774813241074696,-0.0063271073552302595,-0.003116372312686761,0.020206629896736217,-0.0,0.0
+0.020000000000000018,-0.11625153873194172,-0.01093958319662726,9.747704454176965,-0.0036613367735172596,-0.0027212949142865497,0.01841849921815423,-0.0,0.0
 ```
 
-- 定常の gz は 8.978 rad/s。式から見積もると、duty 0.5 で車輪は 15 rad/s、車輪の速さ 0.45 m/s、gz = 2 × 0.45 / 0.10 = 9.0 rad/s なので、ほぼ一致します。
-- 立ち上がりで定常の 63% を超えたのは、ステップから 0.080 秒後のサンプル。止めたときも 0.080 秒で 37% を下回りました。ログが 0.01 秒刻みなので、時定数はおよそ 0.07〜0.08 秒です。
-- 静止の az は 9.8100、止めた 1 秒後の gz はほぼ 0 です。
-
-`--noise` をつけたときの最初の 2 行（静止中）は次のとおりで、gz に 0.02 前後のバイアスが乗っています。
+このログを 05 章の `sysid` で同定すると次のようになりました。
 
 ```
-0.01,0.0652,0.047354,9.77481,-0.00632711,-0.00311637,0.0202066,0,0
-0.02,-0.116252,-0.0109396,9.7477,-0.00366134,-0.00272129,0.0184185,0,0
+$ uv run --extra mujoco physlearn sysid log.csv
+gyro_bias   0.0193
+gyro_noise  0.0051
+yaw_gain    17.9560
+deadband    0.0000
+motor_tau   0.0704
 ```
 
-このログを S004 の `physlearn sysid <csv>` に食わせて同定することを想定していますが、**この章を書いた時点では実際に食わせて確かめていません**。
+- バイアス 0.0193・雑音 0.0051 は、足した 0.02・0.005 にほぼ一致します。
+- K_yaw ≈ 18 は、duty 0.5 で gz ≈ 9.0 rad/s になることに当たります。式から見積もると、duty 0.5 で車輪は 15 rad/s、車輪の速さ 0.45 m/s、gz = 2 × 0.45 / 0.10 = 9.0 rad/s で、合います。
+- デッドバンドは 0 です。モーターのトルクは duty に比例して 0 から出て、MJCF に静止摩擦を入れていないためです。
+- 時定数 0.0704 s は、numpy の一次遅れを当てはめた値です。MuJoCo では車体の慣性とモーターの逆起電力から決まる値で、S007 で 63 % に届く時間を測ったときの 0.07〜0.08 s と合います。
+
+このログを使った「実機の代役」としての 1 周は 07 章にあります。
 
 ## numpy の sim との違いが出そうなところ
 
@@ -106,6 +101,6 @@ final gz 3.52e-06 rest az mean 9.8100
 
 ## 演習
 
-1. `diffdrive.xml` の車体の質量を 0.25 から 0.5 kg に変えて、同じコマンドで時定数がどう変わるか測ってください。定常の gz は変わるでしょうか。それはなぜでしょう。
-2. `python -m physlearn.mujoco_plant --out log.csv --noise` のログから、静止中の gz の平均を取ってジャイロのバイアスを推定してください。何秒ぶんの静止があれば 0.001 rad/s の精度で当てられるでしょう。
+1. `diffdrive.xml` の車体の質量を 0.25 から 0.5 kg に変えて、`sim-log --plant mujoco` と `sysid` で時定数がどう変わるか測ってください。定常の gz は変わるでしょうか。それはなぜでしょう。
+2. `physlearn sim-log --plant mujoco log.csv` のログから、静止中の gz の平均を取ってジャイロのバイアスを推定してください。何秒ぶんの静止があれば 0.001 rad/s の精度で当てられるでしょう。
 3. （sim-to-sim）MuJoCo のログで numpy の sim の時定数とゲインを同定し、同じ指令で numpy の sim を回して gz を重ねて比べてください。どこが合い、どこが合わないでしょうか。

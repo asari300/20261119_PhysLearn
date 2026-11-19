@@ -1,5 +1,6 @@
 from physlearn import HIDDEN, sim_log
-from physlearn.log import read_csv, write_csv
+from physlearn.api import Command
+from physlearn.log import as_log, read_csv, row, write_csv
 from physlearn.sim import Params, SimPlant
 from physlearn.sysid import apply, identify
 
@@ -15,3 +16,13 @@ def test_recovers_known_params_via_csv(tmp_path):
     assert abs(est["deadband"] - true.deadband) < 0.02
     p = apply(Params(), est)
     assert abs(p.motor_gain / true.motor_gain - 1) < 0.05
+
+
+def test_still_only_log_gives_bias_and_noise():
+    plant = SimPlant(HIDDEN, seed=3)
+    plant.reset()
+    rows = [row(plant.step(Command(0, 0), 0.01), Command(0, 0)) for _ in range(300)]
+    est = identify(as_log(rows))
+    assert set(est) == {"gyro_bias", "gyro_noise"}
+    assert abs(est["gyro_bias"] - HIDDEN.gyro_bias) < 0.01
+    assert apply(Params(), est).motor_gain == Params().motor_gain

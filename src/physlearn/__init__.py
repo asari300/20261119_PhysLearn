@@ -5,7 +5,20 @@ import argparse
 from physlearn.sim import Params, SimPlant, id_experiment
 
 # loop-demo で実機の代役にする「隠しパラメータ」。公称 Params() とわざとずらしてある。
-HIDDEN = Params(motor_gain=15.0, motor_tau=0.2, deadband=0.2, gyro_bias=0.08, gyro_noise=0.015)
+# 3 rad/s に要る duty 3/8 + 0.15 = 0.525 が安全ゲートの上限 0.6 に収まるようにしてある。
+HIDDEN = Params(motor_gain=20.0, motor_tau=0.2, deadband=0.15, gyro_bias=0.08, gyro_noise=0.015)
+PLANTS = ("sim", "hidden", "mujoco")
+
+
+def make_plant(name: str, base: Params = Params(), seed: int = 0):
+    """`PLANTS` の名前から Plant を作る。mujoco は IMU に雑音とジャイロのバイアスを足した「実機の代役」。"""
+    if name == "mujoco":
+        try:
+            from physlearn.mujoco_plant import MujocoPlant
+        except ImportError:
+            raise SystemExit("mujoco が入っていない。`uv sync --extra mujoco` で入れる") from None
+        return MujocoPlant(noise_acc=0.05, noise_gyro=0.005, bias_gyro=(0.0, 0.0, 0.02), seed=seed)
+    return SimPlant(HIDDEN if name == "hidden" else base, seed=seed)
 
 
 def sim_log(plant, dt: float = 0.01) -> list:
@@ -27,14 +40,17 @@ def _show(m: dict) -> str:
     return f"整定 {m['settle']:.2f} s  行き過ぎ {m['overshoot'] * 100:.1f} %  定常偏差 {m['ss_error']:.3f} rad/s"
 
 
-def loop_demo(seed: int = 0, n: int = 50) -> dict:
-    """公称の sim でゲインを決める → 代役で試す → 代役のログで同定 → 決め直す → 代役で試す。"""
+def loop_demo(seed: int = 0, n: int = 50, real: str = "hidden") -> dict:
+    """公称の sim でゲインを決める → 代役で試す → 代役のログで同定 → 決め直す → 代役で試す。
+
+    real は代役の Plant（"hidden" = 隠しパラメータの numpy sim、"mujoco" = MuJoCo）。
+    """
     from physlearn.control import SPEC, design, metrics, passes, run
     from physlearn.log import as_log
     from physlearn.randomize import tune
     from physlearn.sysid import apply, identify
 
-    real = SimPlant(HIDDEN, seed=seed + 1000)  # 実機の代役
+    real = make_plant(real, seed=seed + 1000)
     print(f"仕様: 0 → 3 rad/s のステップで {SPEC}")
     out = {}
     for step, p in (("前 (公称の sim)", Params()), ("後 (同定した sim)", None)):
@@ -54,10 +70,11 @@ def main(argv=None) -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("loop-demo", help="代役の実機で R2S → S2R を 1 周回す")
     s.add_argument("--seed", type=int, default=0)
+    s.add_argument("--real", choices=("hidden", "mujoco"), default="hidden", help="実機の代役")
     s = sub.add_parser("sim-log", help="sim で同定用の開ループ実験をしてログ CSV を書く")
     s.add_argument("out")
-    s.add_argument("--params", help="sim のパラメータ JSON（無ければ公称値）")
-    s.add_argument("--hidden", action="store_true", help="loop-demo の代役のパラメータを使う")
+    s.add_argument("--plant", choices=PLANTS, default="sim", help="sim = 公称（か --params）、hidden = loop-demo の代役")
+    s.add_argument("--params", help="--plant sim のパラメータ JSON（無ければ公称値）")
     s.add_argument("--seed", type=int, default=0)
     s = sub.add_parser("sysid", help="ログ CSV（sim でも実機でも）から同定し、パラメータ JSON を書く")
     s.add_argument("csv")
@@ -71,11 +88,11 @@ def main(argv=None) -> None:
 
     base = Params.load(a.params) if getattr(a, "params", None) else Params()
     if a.cmd == "loop-demo":
-        loop_demo(a.seed)
+        loop_demo(a.seed, real=a.real)
     elif a.cmd == "sim-log":
         from physlearn.log import write_csv
 
-        rows = sim_log(SimPlant(HIDDEN if a.hidden else base, seed=a.seed))
+        rows = sim_log(make_plant(a.plant, base, a.seed))
         write_csv(a.out, rows)
         print(f"{a.out}: {len(rows)} 行")
     elif a.cmd == "sysid":
@@ -85,6 +102,8 @@ def main(argv=None) -> None:
         est = identify(read_csv(a.csv))
         for k, v in est.items():
             print(f"{k:11s} {v:.4f}")
+        if "yaw_gain" not in est:
+            print("動いたステップが 2 つ未満なので、ゲイン・時定数・デッドバンドは推定しない（元の値のまま）")
         if a.out:
             apply(base, est).save(a.out)
             print(f"→ {a.out}")
