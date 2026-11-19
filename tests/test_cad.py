@@ -75,3 +75,11 @@ def test_matches_mujoco_and_imu_offset():
     rows = spin(to_mjcf(imu=(0.04, 0, 0)))
     ax, w = rows[-1][1], rows[-1][2]
     assert ax == pytest.approx(-w * w * 0.04, rel=0.1)
+
+
+def test_main_takes_dx_list(capsys):
+    from physlearn.cad import main
+
+    main((-0.04,))
+    out = capsys.readouterr().out
+    assert "x=-0.04 m" in out and "x=+0.04 m" not in out.split("電池なし")[0]

@@ -7,6 +7,7 @@ CAD が質量特性（質量・重心・重心回りの Izz）を出せるなら
 """
 
 import csv
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -116,11 +117,13 @@ def tau_63(rows) -> float:
     return next(t for t, _, g in rows if g >= 0.632 * w)
 
 
-def main():
+def main(dxs=None):
+    """引数なしなら電池の x を (0, 0.04) で。`python -m physlearn.cad 0 0.04 -0.04` のように並べると、その値で比べる。"""
+    dxs = dxs or [float(a) for a in sys.argv[1:]] or (0.0, 0.04)
     m, c, izz = mass_props(DEFAULT_PARTS)
     print(f"既定の車体: 質量 {m:.3f} kg、重心 x {c[0]:+.3f} m、Izz {izz:.3e} kg m^2")
     mb, size = 0.1, (0.06, 0.06, 0.015)  # 単3×4 と箱の想定（assumed、cad/dimensions.csv）
-    for dx in (0.0, 0.04):
+    for dx in dxs:
         m, c, izz = mass_props(DEFAULT_PARTS + [("box", mb, (dx, 0, 0.0175), size)])
         rows = spin(to_mjcf(extra=[(mb, (dx, 0, 0.0175), size)]))
         print(f"電池 0.1 kg を x={dx:+.2f} m: Izz {izz:.3e}、MuJoCo の τ(63%) {tau_63(rows):.3f} s")
