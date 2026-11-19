@@ -5,6 +5,7 @@ import pytest
 from physlearn import HIDDEN, sim_log
 from physlearn.compare import fit, holdout, spread
 from physlearn.log import as_log
+from physlearn.randomize import SPREAD
 from physlearn.sim import Params, SimPlant
 
 
@@ -38,10 +39,22 @@ def test_holdout_runs_and_generalizes_on_symmetric_plant(log):
 def test_spread_known_input():
     ps = [Params(motor_gain=g, motor_tau=t, deadband=d) for g, t, d in ((18, 0.1, 0.1), (22, 0.1, 0.14))]
     s = spread(ps)
-    assert s["motor_gain"]["half"] == pytest.approx(0.1)  # (22-18)/2 / 20
-    assert s["motor_gain"]["ratio"] == pytest.approx(0.5)
-    assert s["motor_tau"]["half"] == 0
+    assert (s["motor_gain"]["lo"], s["motor_gain"]["hi"]) == pytest.approx((-0.1, 0.1))  # 平均 20 に対する比
+    assert s["motor_gain"]["half"] == pytest.approx(0.1)
+    assert s["motor_tau"]["half"] == 0 and s["motor_tau"]["ratio"] == 0
     assert s["deadband"]["half"] == pytest.approx(0.02)
+
+
+def test_spread_asymmetric_outside_is_judged_per_side():
+    assert SPREAD["motor_gain"] == (-0.30, +0.14)  # 下に広く（電池の消耗）、上に狭い
+
+    def ratio(*gains):
+        return spread([Params(motor_gain=g) for g in gains])["motor_gain"]["ratio"]
+
+    assert ratio(14, 20, 20, 20) < 1  # 平均 18.5 に対し 下 -24 % 上 +8 %: 下に広い幅の中
+    assert ratio(20, 20, 20, 26) > 1  # 下 -7 % 上 +21 %: 上の幅 +14 % を超える
+    assert ratio(10, 20, 20) > 1  # 下 -40 %: 下の幅 -30 % を超える
+    assert ratio(14, 20, 20, 20) == pytest.approx(max(0.2432 / 0.30, 0.0811 / 0.14), rel=1e-3)
 
 
 def test_noise_free_log_is_refused():

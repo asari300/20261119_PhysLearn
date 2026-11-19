@@ -2,7 +2,7 @@
 
     python -m physlearn.compare fit LOG.csv PARAMS.json   # ログと同じ指令を sim に流し、gz の残差を見る
     python -m physlearn.compare holdout LOG.csv           # 正の向きで同定し、負の向きで確かめる
-    python -m physlearn.compare spread A.json B.csv ...   # 複数回の同定の幅を randomize.SPREAD と並べる
+    python -m physlearn.compare spread A.json B.csv ...   # 複数回の同定の幅（下, 上）を randomize.SPREAD と並べる
 """
 
 import sys
@@ -119,14 +119,27 @@ def load(path: str) -> Params:
 
 
 def spread(ps: list[Params]) -> dict:
-    """SPREAD の各キーについて、実測の半幅（gain・tau は平均に対する比、deadband・bias は足す量）。"""
+    """SPREAD の各キーについて、実測の幅。
+
+    motor_gain・motor_tau は平均に対する比の (下, 上)（lo ≤ 0 ≤ hi）。deadband・gyro_bias は ± の半幅（足す量）。
+    ratio は SPREAD に対する割合で、1 を超えたら SPREAD の外（下か上のどちらかがはみ出した）。
+    """
     out = {}
     for k, s in SPREAD.items():
         v = np.array([getattr(p, k) for p in ps])
-        half = (v.max() - v.min()) / 2
-        half = half / v.mean() if k in ("motor_gain", "motor_tau") else half
-        out[k] = {"mean": float(v.mean()), "half": float(half), "spread": s, "ratio": float(half / s)}
+        mean = float(v.mean())
+        if isinstance(s, tuple):
+            lo, hi = float(v.min() / mean - 1), float(v.max() / mean - 1)
+            ratio = max(lo / s[0], hi / s[1])
+        else:
+            lo, hi = -float(v.max() - v.min()) / 2, float(v.max() - v.min()) / 2
+            ratio = hi / s
+        out[k] = {"mean": mean, "lo": lo, "hi": hi, "half": (hi - lo) / 2, "spread": s, "ratio": float(ratio)}
     return out
+
+
+def _range(lo, hi, spec=False) -> str:
+    return f"({lo:+.3f}, {hi:+.3f})" if spec else f"{lo:+.3f}/{hi:+.3f}"
 
 
 def main(argv=None) -> None:
@@ -139,14 +152,17 @@ def main(argv=None) -> None:
             print(f"== {name}")
             show(f)
     elif len(a) >= 3 and a[0] == "spread":
-        print(f"{len(a) - 1} 回の同定から。gain・tau は比、deadband・bias は足す量（どれも ± の半幅）")
-        print("キー         平均      実測の半幅  SPREAD   比")
+        print(f"{len(a) - 1} 回の同定から。gain・tau は平均に対する比の (下, 上)、deadband・bias は足す量の ± の半幅")
+        print("キー         平均      実測 (下, 上)           SPREAD                  比")
         sp = spread([load(x) for x in a[1:]])
         for k, d in sp.items():
+            tup = isinstance(d["spread"], tuple)
+            real = _range(d["lo"], d["hi"], True) if tup else f"±{d['half']:.4f}"
+            want = _range(*d["spread"], True) if tup else f"±{d['spread']:.3f}"
             mark = "  ← SPREAD の外" if d["ratio"] > 1 else ""
-            print(f"{k:11s} {d['mean']:8.4f}  {d['half']:8.4f}   {d['spread']:.3f}   {d['ratio']:.0%}{mark}")
-        print("提案: 回数が少ないと幅を小さく見積もるので、実測の半幅の 1.5 倍を SPREAD の候補にする（書き換えはしない）")
-        print("  ", {k: round(1.5 * d["half"], 3) for k, d in sp.items()})
+            print(f"{k:11s} {d['mean']:8.4f}  {real:22s}  {want:22s}  {d['ratio']:.0%}{mark}")
+        print("提案: 回数が少ないと幅を小さく見積もるので、実測の幅の 1.5 倍を SPREAD の候補にする（書き換えはしない）")
+        print("  ", {k: (round(1.5 * d["lo"], 3), round(1.5 * d["hi"], 3)) if isinstance(d["spread"], tuple) else round(1.5 * d["half"], 3) for k, d in sp.items()})
     else:
         raise SystemExit(__doc__)
 

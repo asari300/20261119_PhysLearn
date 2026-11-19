@@ -7,16 +7,17 @@ import numpy as np
 from physlearn.control import design, metrics, passes, run
 from physlearn.sim import Params, SimPlant
 
-# 公称値からの幅。gain・tau は比（±）、deadband・bias は足す量（±）
-SPREAD = {"motor_gain": 0.2, "motor_tau": 0.3, "deadband": 0.03, "gyro_bias": 0.02}
+# 公称値からの幅。gain・tau は比の (下, 上)（非対称）、deadband・bias は足す量（±）。
+# 決め方は log/work/2026-11-19-s041-numbers-once.md: 物理（13 章 6 節）と代役の実測の広いほう。
+SPREAD = {"motor_gain": (-0.30, +0.14), "motor_tau": (-0.14, +0.60), "deadband": 0.03, "gyro_bias": 0.02}
 
 
 def sample(p: Params, rng: np.random.Generator) -> Params:
     s = SPREAD
     return replace(
         p,
-        motor_gain=p.motor_gain * rng.uniform(1 - s["motor_gain"], 1 + s["motor_gain"]),
-        motor_tau=p.motor_tau * rng.uniform(1 - s["motor_tau"], 1 + s["motor_tau"]),
+        motor_gain=p.motor_gain * rng.uniform(1 + s["motor_gain"][0], 1 + s["motor_gain"][1]),
+        motor_tau=p.motor_tau * rng.uniform(1 + s["motor_tau"][0], 1 + s["motor_tau"][1]),
         deadband=max(0.0, p.deadband + rng.uniform(-s["deadband"], s["deadband"])),
         gyro_bias=p.gyro_bias + rng.uniform(-s["gyro_bias"], s["gyro_bias"]),
     )
