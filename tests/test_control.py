@@ -1,5 +1,7 @@
 import math
 
+import numpy as np
+
 from physlearn.api import Command, Obs
 from physlearn.control import SafetyGate, design, metrics, passes, run
 from physlearn.sim import Params, SimPlant
@@ -33,3 +35,16 @@ def test_gate_stops_on_out_of_range_obs():
     bad = Obs(0, 0, 0, 9.81, 0, 0, 20.0)
     assert g(Command(0.05, 0.05), bad, 0.01) == Command(0.0, 0.0)
     assert g(Command(0.05, 0.05), OBS, 0.01) == Command(0.0, 0.0)
+
+
+def test_metrics_negative_target_overshoot():
+    t = np.arange(1, 201) * 0.01
+    y = np.where(t < 0.5, -3.6, -3.0)  # -3 を目標に -3.6 まで行き過ぎる
+    assert abs(metrics(t, y, target=-3.0)["overshoot"] - 0.2) < 1e-9
+
+
+def test_metrics_zero_target_no_division():
+    t = np.arange(1, 201) * 0.01
+    with np.errstate(all="raise"):
+        m = metrics(t, np.zeros_like(t), target=0.0)
+    assert m["overshoot"] == 0.0 and m["settle"] == 0.0
