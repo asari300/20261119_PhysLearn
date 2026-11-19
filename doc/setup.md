@@ -11,7 +11,9 @@
 | 【文書】 | 一次資料（出典を書く）で確かめただけ。この PC では走らせていない |
 | 【未確認】 | 実機が無い・資料に無いなどで確かめていない |
 
-出典はすべて JST 2026-11-19 13:45〜13:50 に取得した。
+出典は JST 2026-11-19 13:45〜13:50 に取得した。**夕方（18:45）に、CI で使っている版（`.github/workflows/ci.yml`・`cad.yml`）、SolidCraft の CLI、診断ツール、つまずき集への案内を足し、監査 4・5 巡目の指摘（Learn の頁の更新日、TinyUSB の行）を直した。**
+
+困ったら先に [troubleshooting.md](troubleshooting.md)（症状から引く）を見る。実機をつないだ直後の診断は `python -m physlearn.hwcheck`（1.4）。
 
 ---
 
@@ -26,13 +28,13 @@
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-この PC は uv 0.13.6、Python 3.12.14 で動いた【試した】。
+この PC は uv 0.13.6、Python 3.12.14 で動いた【試した】。CI（GitHub Actions）は `astral-sh/setup-uv@v10.3.3` で uv を入れ、Python は `.python-version`（3.12）を読んで uv が入れる（`.github/workflows/ci.yml`）。CI の `test` は `uv sync --locked --extra mujoco --extra viz` のあと `uv run pytest -q`。`--locked` は `uv.lock` のとおりに入れ、ずれていたら失敗する。
 
 ### 1.2 入れて、試して、動かす【試した】
 
 ```bash
 cd <repo>
-uv sync                      # numpy, pyserial, pytest が入る
+uv sync                      # numpy, pyserial, pytest が入る（CI は uv sync --locked）
 uv run pytest -q             # 試験
 uv run physlearn loop-demo   # 1 周の実演（sim → 同定 → ゲイン決め）
 ```
@@ -51,11 +53,17 @@ uv run physlearn loop-demo   # 1 周の実演（sim → 同定 → ゲイン決�
 uv sync --extra mujoco       # MuJoCo 4.x（CPU）。08 章で使う
 ```
 
-- `uv sync --extra viz` で図を描く道具（`python -m physlearn.plot`）が入る。
+- `uv sync --extra viz` で図を描く道具（`python -m physlearn.plot`）が入る（matplotlib）。両方要るときは `uv sync --extra mujoco --extra viz`（CI と、章の出力を走らせ直す `python -m physlearn.docs_check --mujoco` がこの形）。
 - MuJoCo の注意【文書】（`doc/research/2026-11-19-software.md`、出典 https://mujoco.readthedocs.io/en/latest/changelog.html ）:
   - 4.0.1 が最新（2026-11-11）。Python 3.10 は対象外になった（本リポジトリは 3.12 以上なので問題ない）。
   - 4.0 で Python パッケージが `mujoco-core` / `mujoco-studio` / `mujoco` に分かれた。3.x を入れていた環境は入れ直しが要ることがある。
   - この PC では import と 10,000 step は動いた（S002）。描画（Studio / viewer）が WSL2 で動くかは【未確認】。
+
+### 1.4 つないだ直後の診断と、つまずいたとき
+
+- 実機（または偽の XIAO）をつないだら、まず `uv run python -m physlearn.hwcheck stream --port /dev/ttyACM0`（サンプルの周期と欠け、`# ERR`、バイアス、飽和を見る）。次に `... hwcheck axes --port ...`（水平・前を上・左を上の 3 姿勢から `--axes` を割り出す）。手順は [bringup.md](bringup.md) の段 1〜3。偽の XIAO でだけ確かめた。実機では【未確認】。
+- **`--axes` は `=` でつなぐ**: 値が `-` で始まるとき、`--axes -y,x,z` と空白で分けると argparse が別のオプションと取り違えて拒む。`--axes=-y,x,z` と書く（`-y,x,z` は基板データからの読み。実物では未確認。[03 章 3.7](textbook/03-hardware-firmware.md)）。`hwcheck axes` の表示は空白区切りのままなので、貼るときに `=` に直す（道具の表示は S059 が直している最中のはず）。
+- 症状から引くなら [troubleshooting.md](troubleshooting.md)（約 60 項目。33 か所は偽の XIAO などで再現した原文のメッセージ）。
 
 ---
 
@@ -67,12 +75,13 @@ uv sync --extra mujoco       # MuJoCo 4.x（CPU）。08 章で使う
 |---|---|---|
 | 追加の URL | `https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json` | `https://siliconlabs.github.io/arduino/package_arduinosilabs_index.json` |
 | コア | `Seeeduino:nrf52`（「Seeed nRF52 Boards」、**mbed でない方**） | `SiliconLabs:silabs` |
-| FQBN | `Seeeduino:nrf52:xiaonRF52840Sense` | 【未確認】コアを入れた後 `arduino-cli board listall SiliconLabs:silabs` で確かめる |
-| ライブラリ | Seeed Arduino LSM6DS3（S005 は 2.0.8 で通した） | 同じ（2.0.4 以上） |
-| 確かめた度合い | コンパイル【試した】（S005, コア 1.1.13）、書き込み【未確認】 | 全部【未確認】（S005 は /tmp があふれて入れられなかった） |
+| FQBN | `Seeeduino:nrf52:xiaonRF52840Sense` | `SiliconLabs:silabs:xiao_mg24`。CI は無線を使わない `SiliconLabs:silabs:xiao_mg24:protocol_stack=none` で通した（メニュー `protocol_stack` は `matter`・`zigbee`・`ble_arduino`・`ble_silabs`・`none`） |
+| CI で使っている版 | コア `Seeeduino:nrf52@1.1.13`、ライブラリ `Seeed Arduino LSM6DS3@2.0.8`、arduino-cli 1.6.0、`adafruit-nrfutil==0.5.3.post16`、Python 3.12 | コア `SiliconLabs:silabs@5.0.0`、同じライブラリ、arduino-cli 1.6.0 |
+| ライブラリ | Seeed Arduino LSM6DS3（2.0.8） | 同じ（2.0.4 以上） |
+| 確かめた度合い | コンパイル【試した】（S005 でこの PC、GitHub Actions の `firmware` ジョブで 2026-11-19 18:13 の初回に成功）、書き込み【未確認】 | コンパイルは GitHub Actions の `firmware-mg24` ジョブで初回に成功（コンパイルが通っただけ）。書き込み・動作【未確認】。**コアが `printf` の浮動小数を持たず、IMU の行が空になる見込み**（S053。未確認）。ローカルでは入れていない（/tmp があふれた） |
 
 出典: https://wiki.seeedstudio.com/XIAO_BLE/ 、https://wiki.seeedstudio.com/xiao_mg24_getting_started/ 【文書】。
-上の FQBN とコア名は、`arduino-cli board search xiao` の出力でも確かめた【試した】（arduino-cli 1.6.0）。
+上の FQBN とコア名は、`arduino-cli board search xiao` の出力でも確かめた【試した】（arduino-cli 1.6.0）。MG24 のコア 5.0.0 の `boards.txt` に `xiao_mg24.name=Seeed Studio XIAO MG24 (Sense)` がある（監査 4 巡目、GitHub のタグ）。版は CI の `ci.yml` が正で、上げるときは意識して上げる。
 Seeed wiki は IMU を使うなら mbed 版を勧めているが、本リポジトリのスケッチは非 mbed 版で書いてある（03 章）。
 
 ### 2.2 Arduino IDE 2 で【文書】
@@ -89,9 +98,9 @@ arduino-cli config init
 arduino-cli config add board_manager.additional_urls \
   https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
 arduino-cli core update-index
-arduino-cli core install Seeeduino:nrf52
-arduino-cli lib install "Seeed Arduino LSM6DS3"
-arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense firmware/xiao_imu_drive          # 【試した】(S005)
+arduino-cli core install Seeeduino:nrf52@1.1.13        # CI と同じ版。版を付けなければ最新
+arduino-cli lib install "Seeed Arduino LSM6DS3@2.0.8"
+arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense firmware/xiao_imu_drive          # 【試した】(S005、CI)
 arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 firmware/xiao_imu_drive  # 【未確認】
 ```
 
@@ -110,7 +119,7 @@ arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 fir
 
 ### 3.1 Windows 側（usbipd-win）【文書】
 
-出典: https://learn.microsoft.com/en-us/windows/wsl/connect-usb （2026-06-02 更新、usbipd-win 5.0.0 以上が前提）、https://github.com/dorssel/usbipd-win/releases （最新 **5.3.0**、2025-10-11 公開。JST 2026-11-19 14:10 に Releases の API で確認）。
+出典: https://learn.microsoft.com/en-us/windows/wsl/connect-usb （en-us の頁。`ms.date` は 2024-04-16、ページ下端は「Last updated on 2024-07-02」。2026-11-19 17:50 に監査 4 巡目が取得。日本語版は読んでいない。usbipd-win 5.0.0 以上が前提）、https://github.com/dorssel/usbipd-win/releases （最新 **5.3.0**、2025-10-11 公開。JST 2026-11-19 14:10 に Releases の API で確認）。
 
 ```powershell
 winget install --interactive --exact dorssel.usbipd-win   # 入れる。--interactive を外すと勝手に再起動することがある
@@ -173,11 +182,41 @@ Windows 側で見るなら `uv run python -m serial.tools.miniterm COM3 115200`�
 | 書き込みの途中で WSL からポートが消える | ブートローダーに入り直してつなぎ直される | 書き込みは Windows 側で（3.3） |
 | `/dev/ttyACM0` が `Permission denied` | `dialout` グループに入っていない | `sudo usermod -aG dialout $USER` して入り直す |
 | ボードがポートとして出ない | 充電専用のケーブル、またはスケッチが固まっている | データ用ケーブルにする。リセット 2 回でブートローダーへ（MG24 は PC1 を GND） |
-| 非 mbed 版で `Serial` がコンパイルできない | TinyUSB が要る | `#include <Adafruit_TinyUSB.h>` を足す（Seeed wiki） |
+| `Serial` が未定義と言われてコンパイルできない（別のコアや別のスケッチのとき） | Seeed wiki は非 mbed 版の USB シリアルに TinyUSB を勧めている。**今のスケッチ `xiao_imu_drive` は `#include <Adafruit_TinyUSB.h>` を入れておらず、非 mbed 版のコア 1.1.13 で CI のコンパイルが通る**（コアが TinyUSB を同梱し、`Serial` は何も足さずに使える）。この行が当たる条件は、別のコアの版や別のスケッチを使うとき【wiki が勧める条件は未確認】 | コアを 1.1.13 に揃える（2.3）。それでも出るときだけ `#include <Adafruit_TinyUSB.h>` を足す（Seeed wiki） |
 
 ---
 
-## 6. 素の Linux と macOS
+## 6. SolidCraft（筐体の設計。任意）
+
+筐体の設計に SolidCraft（solidcraft.io の OSS-CAD）を使うときの準備。GUI は Windows 側（ブラウザー版 https://solidcraft.io/app が主）、CLI と MCP は WSL に置く（発注者の決定 17:50 頃）。**手順の詳細・MCP の許可・worktree の注意は [cad-mcp.md](cad-mcp.md) が正**。ここは入れ方だけ。
+
+CLI（v0.44.1、Linux x86_64）【試した: WSL2 で S042・S051 が、`CAD` ワークフローが GitHub Actions で】:
+
+```bash
+curl -sSfL -O https://github.com/tangency-labs/solidcraft/releases/download/v0.44.1/solidcraft-0.44.1-linux-x86_64.tar.gz
+echo "164097743f6ff11c1eeb90a4313964728955e297689052053e4e5d8d20a64229  solidcraft-0.44.1-linux-x86_64.tar.gz" | sha256sum -c -   # 照合が通ってから展開する
+mkdir -p ~/.local/opt ~/.local/bin && tar -xzf solidcraft-0.44.1-linux-x86_64.tar.gz -C ~/.local/opt   # 展開すると 469 MB
+ln -s ~/.local/opt/solidcraft-0.44.1-linux-x86_64/bin/solidcraft-cli ~/.local/bin/solidcraft-cli
+solidcraft-cli --version      # solidcraft-cli 0.44.1
+```
+
+- 置き場所は `~/.local/opt/`（展開した物）と `~/.local/bin/`（symlink、PATH に要る）。root・FUSE・GPU は要らない。GPU の無い WSL2 では `snapshot`・`gpu` は返らない。
+- SHA-256 は公式の Release の資産の digest と `SHA256SUMS.txt` と手元の `sha256sum` の 3 つで一致した。版を上げるときは意識して上げ、`.github/workflows/cad.yml` の `SC_VERSION`・`SC_SHA256` と揃える。
+- 動作の確認: `solidcraft-cli run cad/plate.json --out /tmp/plate.step`（STEP ができる）、`bash cad/check.sh <出力フォルダ>`（体積・質量・Izz が `cad/expected.csv` と合う。省略すると `cad-out/` に書く）、`uv run python -m physlearn.solidcraft_props <mass.json>`。ブラウザー版・GUI の操作は【未実行】。
+
+MCP（Claude Code から設計させる）。**統括が 17:58 に登録済み**（local スコープ。`.mcp.json` は作っていない）:
+
+```bash
+claude mcp add solidcraft -- solidcraft-cli mcp --allow-path <リポジトリの根>/cad
+claude mcp list      # solidcraft: ... - ✔ Connected
+```
+
+- `--allow-path` が無いと `cad/` が開けない（実測。cad-mcp.md の 4 節）。許可は main のチェックアウトの `cad/` の絶対パスだけで、**worktree の `cad/` は拒否される見込み**（推論。試していない）。
+- ツールごとの許可は未設定。
+
+---
+
+## 7. 素の Linux と macOS
 
 - **素の Linux**: 3 章は要らない。`/dev/ttyACM0` と `dialout` は同じ。ModemManager がポートをつかむことがある【未確認】。
 - **macOS**: uv と arduino-cli は同じ手順。ポートは `/dev/cu.usbmodem*`、`dialout` は無い【未確認】。
