@@ -22,8 +22,12 @@ G = 9.80665
 
 
 def encode_command(cmd: Command) -> bytes:
-    """指令 1 行。範囲外は -1..1 に丸める（ファームも上限で丸める）。"""
-    left, right = (min(1.0, max(-1.0, float(v))) for v in (cmd.left, cmd.right))
+    """指令 1 行。範囲外の有限値は -1..1 に丸める（ファームも DUTY_MAX で切る）。有限でなければ ValueError。"""
+    left, right = float(cmd.left), float(cmd.right)
+    # NaN は min/max を素通りして -1（全速逆転）になるので、送らずに止める
+    if not (np.isfinite(left) and np.isfinite(right)):
+        raise ValueError(f"有限でない指令 {cmd}")
+    left, right = (min(1.0, max(-1.0, v)) for v in (left, right))
     return f"M {left:.3f} {right:.3f}\n".encode()
 
 

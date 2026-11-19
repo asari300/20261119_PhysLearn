@@ -16,7 +16,7 @@
 | `M <left> <right>` | 左右モーターの duty。-1..1、前進が正。例 `M 0.300 -0.300` |
 | `S` | 停止（両輪 duty 0） |
 
-- MCU は `|duty|` を `DUTY_MAX`（既定 0.6）で切る。PC 側も -1..1 に丸めて送る。
+- MCU は `|duty|` を `DUTY_MAX`（既定 0.6）で切る。PC 側も -1..1 に丸めて送る（|duty| > 1 は ±1 に丸め、最終的な上限は MCU の `DUTY_MAX`）。NaN・無限大は送らず `ValueError` にする（`SerialPlant.step` はそのとき `S` を送る）。MCU も `isfinite` でない行は捨てる。
 - **ウォッチドッグ**: 正しい `M` か `S` が 200 ms 来ないと MCU は停止する。走らせ続けたいときは同じ `M` を 200 ms より短い間隔で送り直す（`SerialPlant` は 50 ms ごと）。
 - 起動直後は停止している。
 - duty からピンへ（DRV8835、MODE=GND の IN/IN、fast decay）: duty > 0 は IN1 に PWM・IN2 = 0（正転）、duty < 0 は IN1 = 0・IN2 に PWM（逆転）、0 は両方 0（空転）。ブレーキ (1・1) は使わない。PWM は 8 bit・約 62.7 kHz（nRF52 コアの既定）。

@@ -90,6 +90,17 @@ def test_exception_in_caller_sends_stop():
     assert port.written[-1] == STOP
 
 
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+def test_nonfinite_command_raises_and_stops(bad):
+    port = FakePort([sample(0), sample(10)])
+    with pytest.raises(ValueError):
+        with SerialPlant(ser=port) as p:
+            p.reset()
+            p.step(Command(bad, 0.2), 0.01)
+    assert not any(w.startswith(b"M") for w in port.written)  # 逆転の指令を 1 行も送らない
+    assert port.written[-1] == STOP
+
+
 def test_record_csv(tmp_path):
     port = FakePort([sample(t) for t in range(0, 60, 10)])
     out = tmp_path / "log.csv"
