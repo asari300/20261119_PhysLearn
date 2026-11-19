@@ -91,13 +91,17 @@ def run(plant: Plant, ctrl, target: float = TARGET, duration: float = DURATION, 
 
 def metrics(t: np.ndarray, y: np.ndarray, target: float = TARGET) -> dict:
     """整定時間（±5% に入ったきり出ない時刻）、行き過ぎ（比）、定常偏差（最後の 0.5 s の平均）。"""
-    out = np.abs(y - target) > 0.05 * abs(target)
+    # 目標 0 では比が作れないので、帯と行き過ぎを 1 rad/s あたりの絶対値で測る
+    scale = abs(target) or 1.0
+    out = np.abs(y - target) > 0.05 * scale
     settle = t[np.nonzero(out)[0][-1]] if out.any() else 0.0
     if out[-1]:
         settle = math.inf
+    # 目標の向きに越えた分（負の目標では下に越えた分）
+    over = np.max(np.sign(target) * (y - target)) if target else np.max(np.abs(y))
     return {
         "settle": float(settle),
-        "overshoot": float(max(0.0, (y.max() - target) / target)),
+        "overshoot": float(max(0.0, over / scale)),
         "ss_error": float(abs(y[t >= t[-1] - 0.5].mean() - target)),
     }
 
