@@ -1,0 +1,7 @@
+// Usage: cd <output dir> && MODELICA_DIR=<this dir> omc <this dir>/run.mos
+loadModel(Modelica); getErrorString();
+dir := getEnvironmentVar("MODELICA_DIR");
+loadFile(dir + "/DCMotorPivot.mo"); getErrorString();
+simulate(DCMotorPivot, stopTime = 0.5, numberOfIntervals = 5000); getErrorString();
+val(yaw, 0.5);
+val(yaw, 0.0673);
