@@ -13,8 +13,9 @@ from pathlib import Path
 MODEL = Path(__file__).parent / "models" / "diffdrive.xml"
 TABLE = Path(__file__).parents[2] / "cad" / "dimensions.csv"
 SOURCES = ("datasheet", "cad", "assumed")  # measured 欄が最優先。続いて value の source 欄がこの順
-# 車輪半径・トレッドを探す行。実物の行（測れば入る）が先、無ければ sim の今の値（assumed）
-WHEEL_PARTS = ("Cytron Robo Base 2WD", "sim の今の値 (MJCF)")
+# 車輪半径・トレッドを探す行。実物の行（測れば入る）が先、無ければ sim の今の値（assumed）。車体は Mini 2WD に決まった。
+# Mini の行は今は全部【未確認】（数として読めない）ので読み飛ばされ、値は動かない。測って measured に入れれば効く。2WD は売り切れ（試験が使う）
+WHEEL_PARTS = ("Cytron Robo Base Mini 2WD", "Cytron Robo Base 2WD", "sim の今の値 (MJCF)")
 
 
 def part_izz(shape: str, m: float, size) -> float:

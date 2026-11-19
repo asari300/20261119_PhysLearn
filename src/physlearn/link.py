@@ -64,7 +64,11 @@ def parse_axes(spec: str) -> np.ndarray:
     例: 基板を Z 軸まわりに 90° 回して付けたら "-y,x,z"（機体 x = 基板 -y）。
     """
     m = np.zeros((3, 3))
-    for row, tok in enumerate(spec.replace(" ", "").split(",")):
+    toks = spec.replace(" ", "").split(",")
+    bad = [t for t in toks if t.lstrip("+-") not in ("x", "y", "z")]
+    if len(toks) != 3 or bad:
+        raise ValueError(f"axes {spec!r} は読めない。x・y・z を 3 つ、符号つきでよい、コンマ区切りで（例 x,y,z / -y,x,z）" + (f"。{bad[0]!r} は軸の名前でない" if bad else ""))
+    for row, tok in enumerate(toks):
         sign = -1.0 if tok.startswith("-") else 1.0
         m[row, "xyz".index(tok.lstrip("+-"))] = sign
     # 鏡映は角速度（擬ベクトル）の符号を壊すので、回転だけを許す
@@ -73,11 +77,33 @@ def parse_axes(spec: str) -> np.ndarray:
     return m
 
 
+PORT_HINT = "`ls /dev/ttyACM*` で名前を確かめる。WSL2 なら doc/setup.md の usbipd の節（USB を WSL2 に渡す）、権限なら dialout グループ"
+
+
+def open_port(parser, port: str, **kw):
+    """ポートを開く。開けなければ原因の案内つきで parser.error（終了コード 2）。"""
+    try:
+        return serial.Serial(port, BAUD, **kw)
+    except serial.SerialException as e:
+        parser.error(f"ポート {port} が開けない（{e}）。{PORT_HINT}")
+
+
+def axes_with_equals(argv):
+    """`--axes -y,x,z`（負号始まりの値）を `--axes=-y,x,z` にする。argparse は前者を別のオプションと読んで拒む。"""
+    out = []
+    for t in sys.argv[1:] if argv is None else argv:
+        if out and out[-1] == "--axes" and not t.startswith("--"):
+            out[-1] = f"--axes={t}"
+        else:
+            out.append(t)
+    return out
+
+
 class SerialPlant:
     """`Plant` の実機版。with で使うと、終了時・例外時に必ず停止を送る。"""
 
     def __init__(self, port: str = "", axes: str = "x,y,z", timeout: float = 1.0, ser=None, settle: bool = True):
-        self.ser = ser if ser is not None else serial.Serial(port, BAUD, timeout=0.05)
+        self.ser = ser if ser is not None else serial.Serial(port, BAUD, timeout=0.05)  # 開けないときの案内は main の open_port
         self.rot = parse_axes(axes)
         self.timeout = timeout
         self.settle = settle  # False なら reset は最初のサンプルで t0 を決める（サンプルを固定した試験用）
@@ -207,6 +233,17 @@ def jog(plant: SerialPlant, cmd: Command, seconds: float, dt: float = 0.01) -> f
     return float(np.mean(gz[len(gz) // 2 :]))
 
 
+def jog_hint(left: float, right: float) -> str:
+    """jog の結果の見方。右だけ正の文は従来のまま、左だけ・両方のときは指定に合わせる。"""
+    if left == 0 and right > 0:
+        return "右だけ正 → gz 正（左回り）が正しい向き"
+    if right == 0 and left > 0:
+        return "左だけ正 → gz 負（右回り）が正しい向き"
+    if right == left:
+        return "左右が同じ duty なら旋回しない（gz はバイアスだけ）"
+    return f"右 - 左 が{'正' if right > left else '負'} → gz {'正（左回り）' if right > left else '負（右回り）'}が正しい向き"
+
+
 def run_loop(plant: SerialPlant, ctrl_factory, target: float, seconds: float, dt: float = 0.01):
     """+target → -target の 2 回、control.run で回す（正味の回転を 0 に近づけ、ケーブルをねじらない）。
 
@@ -247,15 +284,21 @@ def main(argv=None) -> None:
     p.add_argument("--params", help="run: ゲインを決めるパラメータ JSON（physlearn sysid --out。無ければ公称値）")
     p.add_argument("--tc", type=float, help="run: 閉ループ時定数を手で与える（無ければ randomize.tune で探す）")
     p.add_argument("--target", type=float, help=f"run: 目標のヨー角速度 [rad/s]（既定 control.TARGET、上限 {TARGET_MAX}）")
-    a = p.parse_args(argv)
+    a = p.parse_args(axes_with_equals(argv))
     from physlearn.control import DURATION, TARGET
 
     a.seconds = a.seconds if a.seconds is not None else {"still": 10.0, "jog": 0.5, "run": DURATION}.get(a.mode, 10.0)
     a.target = TARGET if a.target is None else a.target
     smax = {"jog": JOG_MAX_S, "run": RUN_MAX_S}.get(a.mode, 3600)
     # `not (a < x < b)` の形で NaN も弾く
-    if not (0 < a.dt < 1 and 0 < a.seconds <= smax):
-        p.error(f"--dt は 0〜1 秒、--seconds は 0〜{smax} 秒")
+    if not 0 < a.dt < 1:
+        p.error(f"--dt は 0〜1 秒（今 {a.dt}）")
+    if not 0 < a.seconds <= smax:
+        p.error(f"--seconds は 0〜{smax} 秒（今 {a.seconds}）")
+    try:
+        parse_axes(a.axes)
+    except ValueError as e:
+        p.error(f"--axes: {e}")
     if a.mode in ("still", "id") and not a.out:
         p.error(f"{a.mode} には --out が要る")
     if a.mode == "jog" and not (abs(a.left) <= DUTY_MAX and abs(a.right) <= DUTY_MAX):
@@ -276,10 +319,10 @@ def main(argv=None) -> None:
         print(f"仕様 {SPEC}。+{a.target} → -{a.target} rad/s を {a.seconds} s ずつ。車輪を浮かせたか、床なら周りを空けたか確かめて。", flush=True)
     elif a.mode == "jog":
         print(f"jog left={a.left} right={a.right} を {a.seconds} s。車輪を浮かせたか確かめて。", flush=True)
-    with SerialPlant(a.port, a.axes) as plant:
+    with SerialPlant(ser=open_port(p, a.port, timeout=0.05), axes=a.axes) as plant:
         if a.mode == "jog":
             g = jog(plant, Command(a.left, a.right), a.seconds, a.dt)
-            print(f"gz の平均（後半）{g:+.3f} rad/s（バイアス込み）。右だけ正 → gz 正（左回り）が正しい向き")
+            print(f"gz の平均（後半）{g:+.3f} rad/s（バイアス込み）。{jog_hint(a.left, a.right)}")
             return
         if a.mode == "run":
             rows, res = run_loop(plant, lambda: design(base, tc), a.target, a.seconds, a.dt)
