@@ -97,3 +97,25 @@ def test_strict_flags_nonzero_exit_and_missing_file(tmp_path):
     r = run_file(md, False, strict=True)
     assert r[0][2] == "差" and "終了コード 3" in r[0][3][1]
     assert r[1][2] == "差"  # 飛ばしたコマンドの出力でない FileNotFoundError は本物のバグ
+
+
+def test_output_directive_checks_fragments_as_excerpts_and_runs_the_command_once(tmp_path):
+    md = tmp_path / "c.md"
+    md.write_text(
+        "<!-- docs_check: output uv run python -c \"import time; print('a 1'); print('b 2'); print('c 3', time.time() > 0)\" -->\n"
+        "```\na 1\nc 3 True\n```\n\n"
+        "<!-- docs_check: output uv run python -c \"import time; print('a 1'); print('b 2'); print('c 3', time.time() > 0)\" -->\n"
+        "```\nb 9\n```\n"
+    )
+    u = extract(md.read_text())
+    assert [(x.excerpt, x.expected) for x in u] == [(True, ["a 1", "c 3 True"]), (True, ["b 9"])]
+    assert [r[2] for r in run_file(md, False)] == ["一致", "差"]
+
+
+def test_commands_that_need_mujoco_are_skipped_without_it(tmp_path):
+    assert auto_skip("uv run physlearn loop-demo --real mujoco", False) and auto_skip("uv run physlearn sim-log --plant=mujoco a.csv", False)
+    assert not auto_skip("uv run physlearn loop-demo --real mujoco", True)
+    md = tmp_path / "c.md"
+    md.write_text("```\n$ uv run python -c \"import mujoco_nowhere\"\n1\n$ uv run python -c \"import sys; sys.stderr.write(\\\"No module named 'mujoco'\\\")\"\n1\n```\n")
+    r = run_file(md, False)
+    assert [x[2] for x in r] == ["差", "飛ばした"] and r[1][3] == "mujoco なし"

@@ -7,6 +7,7 @@
 - 現象ごとに、同定の結果と残差（14 章の診断）にどんな症状が出るかを見ます。
 - 全部入りの代役で R2S → S2R を 1 周回し、同定してもなお仕様を外すことを見ます。
 
+<!-- docs_check: skip 下の断片の見張りで走らせる（出力は貼っていない） -->
 ```bash
 uv run python -m physlearn.mismatch one    # 現象を 1 つずつ入れて同定・診断
 uv run python -m physlearn.mismatch loop   # HIDDEN と全部入りで 1 周ずつ
@@ -57,6 +58,7 @@ uv run python -m physlearn.mismatch loop   # HIDDEN と全部入りで 1 周ず�
 
 式: 時刻 t の指令が、t + 0.04 s に効きます。
 
+<!-- docs_check: output uv run python -m physlearn.mismatch one -->
 ```
 --- delay=0.04
   同定: yaw_gain=8.242  motor_tau=0.249  deadband=0.150
@@ -76,6 +78,7 @@ uv run python -m physlearn.mismatch loop   # HIDDEN と全部入りで 1 周ず�
 
 最初は「右回りと左回りで定常値が分かれる」と考えていました。分かれませんでした。
 
+<!-- docs_check: output uv run python -m physlearn.mismatch one -->
 ```
 --- lr=0.1
   同定: yaw_gain=8.006  motor_tau=0.201  deadband=0.150
@@ -98,6 +101,7 @@ gz だけを見る同定と制御では、この差は見えません。
 向きで定常値が分かれるのは、モーター自身が「前に回すときと後ろに回すとき」で違う場合でした。
 左モーターだけ前転を 10% 強くしました。左が前に回るのは負の向きの旋回です。
 
+<!-- docs_check: output uv run python -m physlearn.mismatch one -->
 ```
 --- fb=0.1
   同定: yaw_gain=8.206  motor_tau=0.201  deadband=0.150
@@ -120,6 +124,7 @@ gz だけを見る同定と制御では、この差は見えません。
 
 同定の実験は今は 17 s あります。つまり実験の最初の 13 s で電池が落ち切り、末尾の 4 s は落ち切ったままです。`mismatch.py` の `SAG_T` の説明文（「id_experiment の長さ」）は古く、実験の長さに合わせて 17 s にしたわけではありません（値は 13 のままです）。この章では、コードの値（13 s）と実験の長さ（17 s）を分けて書きます。
 
+<!-- docs_check: output uv run python -m physlearn.mismatch one -->
 ```
 --- sag=0.27
   同定: yaw_gain=6.026  motor_tau=0.198  deadband=0.138
@@ -150,6 +155,7 @@ gz だけを見る同定と制御では、この差は見えません。
 式: IMU が旋回中心から前に d ずれていると、
 ax に −ω²d（向心）が、ay に α·d（α は角加速度）が乗ります。gz は剛体のどこで測っても同じです。
 
+<!-- docs_check: output uv run python -m physlearn.mismatch one -->
 ```
 --- imu_x=0.03
   同定: yaw_gain=8.006  motor_tau=0.201  deadband=0.150
@@ -169,6 +175,7 @@ ax に −ω²d（向心）が、ay に α·d（α は角加速度）が乗り�
 `python -m physlearn.mismatch loop` の出力です。
 流れは `loop_demo` と同じです: 公称の sim でゲインを決める → 代役で試す → 代役のログで同定 → 決め直す → 代役で試す。
 
+<!-- docs_check: output uv run python -m physlearn.mismatch loop -->
 ```
 === HIDDEN（同じ式）
   前 (公称) tc=0.08: 整定 0.64 s 行き過ぎ 6% 定常偏差 0.081 NG

@@ -366,6 +366,7 @@ t_ms の始まりは、偽物を立ててから送るまでの時間で変わり
 
 `python -m physlearn.cad` の出力:
 
+<!-- docs_check: output uv run python -m physlearn.cad -->
 ```
 既定の車体: 質量 0.290 kg、重心 x +0.000 m、Izz 5.831e-04 kg m^2
 電池 0.1 kg を x=+0.00 m: Izz 6.431e-04、MuJoCo の τ(63%) 0.078 s

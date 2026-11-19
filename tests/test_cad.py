@@ -1,3 +1,4 @@
+import sys
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -84,3 +85,12 @@ def test_main_takes_dx_list(capsys):
     main((-0.04,))
     out = capsys.readouterr().out
     assert "x=-0.04 m" in out and "x=+0.04 m" not in out.split("電池なし")[0]
+
+
+def test_main_without_mujoco_says_how_to_install(monkeypatch):
+    monkeypatch.setitem(sys.modules, "mujoco", None)  # import mujoco が ImportError になる
+    from physlearn.cad import main
+
+    with pytest.raises(SystemExit) as e:
+        main((0.0,))
+    assert "uv sync --extra mujoco" in str(e.value.code)

@@ -23,7 +23,7 @@
 - **``mujoco が入っていない。`uv sync --extra mujoco` で入れる``** ✔ 再現。`--plant mujoco`・`--real mujoco` を選んだが追加パッケージが無い。→ メッセージどおり。MuJoCo 4.x の注意は [setup 1.3](setup.md)。
 - **``matplotlib が無い。`uv sync --extra viz` で入れる``** ✔ 再現。`python -m physlearn.plot` に図の道具が要る。→ メッセージどおり。
 - **`command not found: python`**（`physlearn` も）。`.venv` を有効にしていない。14 章のコマンドは `uv run` を付けずに書いてある。→ 前に `uv run` を付ける（`uv run python -m physlearn.compare ...`、`uv run physlearn sim-log ...`）。
-- **`ModuleNotFoundError: No module named 'mujoco'`**（`mujoco が入っていない` というメッセージが出る前に、Python の例外で止まる所）。16 章の `python -m physlearn.cad` などが MuJoCo を直に読む。→ `uv sync --extra mujoco --extra viz`。
+- **`ModuleNotFoundError: No module named 'mujoco'`**。`python -m physlearn.cad`（16 章）は S093 から、MuJoCo が無ければこの例外ではなく「mujoco が入っていない」のメッセージで止まる（終了コード 1）。ほかに MuJoCo を直に読む所があれば、この例外のまま出る。→ `uv sync --extra mujoco --extra viz`。
 - **`No module named physlearn.__main__; 'physlearn' is a package and cannot be directly executed`** ✔ 再現。`python -m physlearn sysid ...` と打った。`physlearn` は `-m` で呼ぶ名前ではなく、コマンド名。→ `uv run physlearn sysid ...`。`python -m physlearn.link` のようにサブモジュールは `-m` で呼ぶ。
 - **`FileNotFoundError: [Errno 2] No such file or directory: 'xxx.csv'`**（`.json` も）✔ 再現。パスの打ち間違い、または作ったときと別のディレクトリにいる。→ `ls` で確かめる。`sim-log`・`link` は `--out` に書いた場所に作る。
 - **`uv run pytest` が落ちる・止まる。** 擬似端末を実時間の 2 倍速で使う試験（`tests/test_fakexiao.py`、`tests/test_real_loop.py`）は、遅い PC で時間切れになりうる。CI も 1 回だけ回し直す（[ci.yml](../.github/workflows/ci.yml)）。→ もう 1 回回す。2 回とも落ちたら本物の失敗。（文書より）
