@@ -86,8 +86,11 @@ class SimPlant:
 
 
 def id_experiment(dt: float = 0.01) -> list[Command]:
-    """同定用の開ループ指令列（その場旋回）。静止 1 s のあと、振幅を変えたステップと 0 を交互に。"""
+    """同定用の開ループ指令列（その場旋回、全体 13 s）。静止 1 s のあと、各 1 s のステップと 0 を 1 s ずつ交互に。
+
+    符号を交互にして正味の回転を 0 にする（USB ケーブルをねじらない）。最大 0.5 はスケッチの DUTY_MAX 0.6 より下。
+    """
     seq = [0.0] * round(1.0 / dt)
-    for u in (0.2, 0.35, 0.5, -0.35, 0.65):
+    for u in (0.2, -0.2, 0.35, -0.35, 0.5, -0.5):
         seq += [u] * round(1.0 / dt) + [0.0] * round(1.0 / dt)
     return [Command(-u, u) for u in seq]

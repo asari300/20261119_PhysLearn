@@ -1,17 +1,14 @@
 """MuJoCo で動く 2 輪差動の `Plant`（任意の依存 `mujoco` が要る）。
 
-    python -m physlearn.mujoco_plant --out log.csv
-で 静止 -> 左右逆の duty -> 停止 のログを `LOG_COLUMNS` の CSV で書く。
+同定用のログは `physlearn sim-log --plant mujoco log.csv` で書く。
 """
 
-import argparse
-import csv
 from pathlib import Path
 
 import mujoco
 import numpy as np
 
-from physlearn.api import LOG_COLUMNS, Command, Obs
+from physlearn.api import Command, Obs
 
 MODEL = Path(__file__).parent / "models" / "diffdrive.xml"
 
@@ -37,32 +34,13 @@ class MujocoPlant:
         mujoco.mj_step(self.model, self.data, nstep=max(1, round(dt / self.model.opt.timestep)))
         return self._obs()
 
+    @property
+    def yaw_rate(self) -> float:
+        """真のヨー角速度（雑音・バイアスなしのジャイロ z。平らな床なので機体の z と鉛直が一致する）。評価に使う。"""
+        return float(self.data.sensor("gyro").data[2])
+
     def _obs(self) -> Obs:
         # site の軸が機体座標 (x 前・y 左・z 上) なので、センサー値をそのまま使える
         acc = self.data.sensor("acc").data + self.noise_acc * self.rng.standard_normal(3)
         gyro = self.data.sensor("gyro").data + self.bias_gyro + self.noise_gyro * self.rng.standard_normal(3)
         return Obs(self.data.time - self.t0, *map(float, acc), *map(float, gyro))
-
-
-def main():
-    p = argparse.ArgumentParser(description="MuJoCo の車体でステップ応答のログを書く")
-    p.add_argument("--out", required=True)
-    p.add_argument("--duty", type=float, default=0.5)
-    p.add_argument("--dt", type=float, default=0.01)
-    p.add_argument("--noise", action="store_true", help="IMU に雑音とジャイロのバイアスを足す")
-    p.add_argument("--seed", type=int, default=0)
-    a = p.parse_args()
-    plant = MujocoPlant(0.05, 0.005, (0.0, 0.0, 0.02), a.seed) if a.noise else MujocoPlant(seed=a.seed)
-    plant.reset()
-    plan = [(1.0, Command(0, 0)), (2.0, Command(-a.duty, a.duty)), (1.0, Command(0, 0))]
-    with open(a.out, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(LOG_COLUMNS)
-        for seconds, cmd in plan:
-            for _ in range(round(seconds / a.dt)):
-                o = plant.step(cmd, a.dt)
-                w.writerow([f"{v:.6g}" for v in (o.t, o.ax, o.ay, o.az, o.gx, o.gy, o.gz, cmd.left, cmd.right)])
-
-
-if __name__ == "__main__":
-    main()

@@ -47,7 +47,8 @@ class SafetyGate:
     指令か観測が NaN/inf、または |gz| が gz_limit を超えたら止めて (0, 0)、以後ずっと止めたまま。
     """
 
-    def __init__(self, max_duty: float = 0.8, max_rate: float = 10.0, gz_limit: float = 15.0):
+    # スケッチの DUTY_MAX と同じ 0.6。ゲートが大きいとログの指令と実際に出た duty がずれて同定が狂う
+    def __init__(self, max_duty: float = 0.6, max_rate: float = 10.0, gz_limit: float = 15.0):
         self.max_duty, self.max_rate, self.gz_limit = max_duty, max_rate, gz_limit
         self.prev = Command(0.0, 0.0)
         self.tripped = ""
