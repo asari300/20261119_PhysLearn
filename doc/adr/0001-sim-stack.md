@@ -7,7 +7,7 @@
 
 - 2026-10-22 の PoC 設計書（[../physical_ai_isaacsim_poc_ja.md](../physical_ai_isaacsim_poc_ja.md)）は Isaac Sim を V-World の中心に置いていた。
 - しかし作業する PC は WSL2・GPU 無し・RAM 7 GiB。
-- Isaac Sim 6.2 の要件は最小で RTX 4080 (VRAM 16GB)・RAM 32GB、RT コアのある NVIDIA GPU が必須。WSL2 は要件ページに記載がなく、NVIDIA 職員はフォーラムで非対応と答えている。
+- Isaac Sim 6.2 の要件は最小で RTX 4080 (VRAM 16GB)・RAM 32GB、RT コアのある NVIDIA GPU が必須。WSL2 は要件ページに記載がなく、NVIDIA フォーラムのモデレーターが 2025-10（Isaac Sim 5.x の時期）に「WSL2 上のコンテナは非対応」と答えている（6.2 で変わったかは未確認）。
 - 課題は「IMU だけを見て、差動 2 輪のヨー角速度を指令どおりにする」。必要な物理はモーターの 1 次遅れと車体の回転くらいで、接触や見た目の再現は要らない。
 - MuJoCo 4.0.1（2026-11-11）は CPU で動き、この PC で import と 10,000 step（0.038 秒）を確かめた。4.0 から `mujoco-core` は numpy だけに依存する。
 - MJX / MuJoCo Warp / Newton / Isaac Lab は GPU で多数の環境を並列に回す道具で、単一の小さな sim では CPU の MuJoCo より速くならない（MJX の文書は最大 10 倍遅いと書く）。
