@@ -34,3 +34,12 @@ def test_prediction_matches_mujoco():
     assert ss == pytest.approx(0.5 * k * 2 * 0.03 / 0.10, rel=0.01)
     # MuJoCo の接触は柔らかく、少し遅れる（0.072 s 対 0.067 s）
     assert t[np.argmax(gz >= 0.632 * ss)] == pytest.approx(tau, rel=0.15)
+
+
+def test_mujoco_model_is_physical():
+    # b が負だと、電池の内部抵抗を足したとき K が上がってしまった（S031）
+    m, j = motor.mujoco_model()
+    assert m.b >= 0
+    k0, tau0 = motor.first_order(m, j)
+    k1, tau1 = motor.first_order(motor.Motor(m.V, m.R + 0.5, m.L, m.Kt, m.n, m.b), j)
+    assert k1 <= k0 * (1 + 1e-12) and tau1 > tau0  # b = 0 なら K は V/Ke のまま、遅くなるだけ
