@@ -62,7 +62,7 @@ uv sync --extra mujoco       # MuJoCo 4.x（CPU）。08 章で使う
 ### 1.4 つないだ直後の診断と、つまずいたとき
 
 - 実機（または偽の XIAO）をつないだら、まず `uv run python -m physlearn.hwcheck stream --port /dev/ttyACM0`（サンプルの周期と欠け、`# ERR`、バイアス、飽和を見る）。次に `... hwcheck axes --port ...`（水平・前を上・左を上の 3 姿勢から `--axes` を割り出す）。手順は [bringup.md](bringup.md) の段 1〜3。偽の XIAO でだけ確かめた。実機では【未確認】。
-- **`--axes` は `=` でつなぐ**: 値が `-` で始まるとき、`--axes -y,x,z` と空白で分けると argparse が別のオプションと取り違えて拒む。`--axes=-y,x,z` と書く（`-y,x,z` は基板データからの読み。実物では未確認。[03 章 3.7](textbook/03-hardware-firmware.md)）。`hwcheck axes` の表示は空白区切りのままなので、貼るときに `=` に直す（道具の表示は S059 が直している最中のはず）。
+- **`--axes` は `=` でつなぐ**: 値が `-` で始まるとき、`--axes -y,x,z` と空白で分けると argparse が別のオプションと取り違えて拒む。`--axes=-y,x,z` と書く（`-y,x,z` は基板データからの読み。実物では未確認。[03 章 3.7](textbook/03-hardware-firmware.md)）。`link` は空白区切りでも通り、`hwcheck axes` は `--axes=-y,x,z` の形で表示する（S059、18:43 に main へ。偽の XIAO でだけ確認）。`fakexiao --axes` は今も `=` が要る。
 - 症状から引くなら [troubleshooting.md](troubleshooting.md)（約 60 項目。33 か所は偽の XIAO などで再現した原文のメッセージ）。
 
 ---
