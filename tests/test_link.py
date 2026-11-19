@@ -177,3 +177,61 @@ def test_id_mode_over_serial(tmp_path, monkeypatch):
     rows = list(csv.reader(out.open()))
     assert rows[0] == LOG_COLUMNS and len(rows) == 1 + n
     assert port.written[-1] == STOP
+
+
+@pytest.mark.parametrize("axes", [["--axes", "-y,x,z"], ["--axes=-y,x,z"], ["--axes", "y,-x,z"]])
+def test_cli_axes_with_leading_minus_both_spellings(tmp_path, monkeypatch, axes):
+    from physlearn.link import main
+    from physlearn.sim import id_experiment
+
+    n = len(id_experiment(0.01))
+    port = FakePort([sample(t) for t in range(0, 10 * (n + 1 + SETTLE_N), 10)])
+    monkeypatch.setattr(serial, "Serial", lambda *a, **k: port)
+    main(["id", "--port", "fake", "--out", str(tmp_path / "id.csv"), *axes])
+    assert (tmp_path / "id.csv").exists()
+
+
+def test_cli_axes_values_not_swallowed_as_option(capsys):
+    from physlearn.link import axes_with_equals
+
+    assert axes_with_equals(["--axes", "-y,x,z", "--dt", "-1"]) == ["--axes=-y,x,z", "--dt", "-1"]
+    assert axes_with_equals(["--axes", "--dt", "1"]) == ["--axes", "--dt", "1"]  # 値が無いのはそのまま argparse に断らせる
+
+
+@pytest.mark.parametrize("spec", ["a,b,c", "x,y", "x,y,z,x", "x,,z", ""])
+def test_bad_axes_say_what_is_wrong(spec, capsys):
+    from physlearn.link import main
+
+    with pytest.raises(ValueError, match="読めない"):
+        parse_axes(spec)
+    with pytest.raises(SystemExit) as e:
+        main(["still", "--port", "/dev/null-none", "--out", "x.csv", f"--axes={spec}"])
+    assert e.value.code == 2 and "--axes" in capsys.readouterr().err
+
+
+def test_bad_dt_and_seconds_name_the_argument(capsys):
+    from physlearn.link import main
+
+    for arg, bad, ok in (("--dt", "--dt は", "--seconds は"), ("--seconds", "--seconds は", "--dt は")):
+        with pytest.raises(SystemExit):
+            main(["still", "--port", "/dev/null-none", "--out", "x.csv", arg, "0"])
+        err = capsys.readouterr().err
+        assert bad in err and ok not in err
+
+
+def test_missing_port_gives_hint_not_traceback(capsys):
+    from physlearn.link import main
+
+    with pytest.raises(SystemExit) as e:
+        main(["still", "--port", "/dev/no-such-port", "--out", "x.csv"])
+    err = capsys.readouterr().err
+    assert e.value.code == 2 and "/dev/no-such-port が開けない" in err and "ls /dev/ttyACM*" in err and "usbipd" in err
+    assert "Traceback" not in err
+
+
+def test_jog_hint_matches_what_was_asked():
+    from physlearn.link import jog_hint
+
+    assert jog_hint(0.0, 0.3) == "右だけ正 → gz 正（左回り）が正しい向き"  # 章に貼られた従来の文
+    assert "左だけ正" in jog_hint(0.3, 0.0) and "gz 負" in jog_hint(0.3, 0.0)
+    assert "gz 正" in jog_hint(-0.2, 0.2) and "gz 負" in jog_hint(0.2, -0.2)

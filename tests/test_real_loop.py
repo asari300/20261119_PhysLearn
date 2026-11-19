@@ -11,7 +11,7 @@ pytest.importorskip("pty")
 from physlearn import HIDDEN, sim_log  # noqa: E402
 from physlearn.api import Command  # noqa: E402
 from physlearn.control import design, metrics, run  # noqa: E402
-from physlearn.fakexiao import FakeXiao  # noqa: E402
+from physlearn.fakexiao import WATCHDOG_MS, FakeXiao  # noqa: E402
 from physlearn.link import SerialPlant, jog, main, run_loop  # noqa: E402
 from physlearn.log import as_log  # noqa: E402
 from physlearn.sim import Params, SimPlant  # noqa: E402
@@ -65,9 +65,11 @@ def test_args_rejected():
 
 def wait_stopped(f, timeout=1.0):
     # 停止は別スレッドの偽物に非同期で届く。ウォッチドッグ (200 ms) より短い時間で 0 になること
-    end = time.monotonic() + min(timeout, 0.2 / SPEED)
+    # 壁時計でなく偽物の時刻 (f.t_ms) で測る: 遅い環境でも偽物が進んだ分しか数えない。壁時計は固まったときの上限だけ
+    t0, end = f.t_ms, time.monotonic() + timeout * 5
     while f.duty != (0.0, 0.0):
-        assert time.monotonic() < end, f"停止が届かない: duty {f.duty}"
+        assert f.t_ms - t0 <= WATCHDOG_MS, f"停止が届かない（ウォッチドッグより遅い）: duty {f.duty}"
+        assert time.monotonic() < end, f"偽物が進まない: duty {f.duty}"
         time.sleep(0.001)
 
 

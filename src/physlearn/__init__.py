@@ -1,6 +1,7 @@
 """physlearn: Sim2Real / Real2Sim を XIAO + IMU の 2 輪で学ぶ。CLI は `physlearn -h`。"""
 
 import argparse
+import sys
 
 from physlearn.sim import Params, SimPlant, id_experiment
 
@@ -36,7 +37,10 @@ def sim_log(plant, dt: float = 0.01) -> list:
     obs = plant.reset()
     rows = []
     for c in id_experiment(dt):
+        was = gate.tripped
         cmd = gate(c, obs, dt)
+        if gate.tripped and not was:  # 標準出力と CSV は変えず、標準エラーにだけ知らせる
+            print(f"# 安全ゲートが作動した（{gate.tripped}、t = {obs.t:.2f} s）。以後の指令は 0 になり、このログは同定に使えない", file=sys.stderr)
         obs = plant.step(cmd, dt)
         rows.append(row(obs, cmd))
     return rows

@@ -38,7 +38,8 @@ def test_stream_passes_period_gaps_and_gravity(fake_factory):
     with serial.Serial(f.port, BAUD, timeout=0.05) as ser:
         d, notes, bad = read(ser, 2.0)
     res = {c[0]: c for c in stream_checks(d, notes, bad)}
-    assert 180 <= len(d) <= 200
+    # 2.0 s / 10 ms = 200 個。読み始めと終わりの境で ±1〜2 個ずれうる（1 コアで 201 個を観測）ので上限に余裕。欠けは別の項目が見る
+    assert 180 <= len(d) <= 203
     for name in ("MCU 周期 平均", "MCU 周期 最大", "欠けたサンプル", "壊れた行", "PC 壁時計 周期 平均", "# ERR の行", "加速度ノルム - 9.81", "飽和の疑い"):
         assert res[name][2], res[name]
     assert np.diff(d[:, 0]).mean() == pytest.approx(10.0, abs=0.01)
@@ -110,3 +111,45 @@ def test_cli_axes_on_fake_refuses_when_poses_repeat(fake_factory, capsys):
     code = main(["axes", "--port", f.port, "--no-prompt", "--settle", "0", "--seconds", "0.4"])
     out = capsys.readouterr().out
     assert code == 1 and "重力は基板の +z" in out and "同じ軸" in out
+
+
+def test_last_err_lists_distinct_err_lines():
+    from physlearn.hwcheck import last_err
+
+    assert last_err(["# hello", "# ERR imu not found"] * 5) == "（MCU の報告: # ERR imu not found）"
+    assert last_err(["# hello"]) == ""
+    assert last_err([f"# ERR e{i}" for i in range(9)]).count("# ERR") == 3
+
+
+def test_stream_timeout_shows_the_err_the_mcu_sent(capsys):
+    # サンプルが 1 つも来ず `# ERR imu not found` だけが流れ続ける（IMU が見つからないスケッチ）
+    import os
+    import pty
+    import time
+
+    master, slave = pty.openpty()
+    stop = threading.Event()
+
+    def spam():
+        while not stop.is_set():
+            os.write(master, b"# ERR imu not found\n")
+            time.sleep(0.01)
+
+    th = threading.Thread(target=spam, daemon=True)
+    th.start()
+    try:
+        code = main(["stream", "--port", os.ttyname(slave), "--seconds", "0.5"])
+    finally:
+        stop.set()
+        th.join(2)
+        os.close(master)
+        os.close(slave)
+    out = capsys.readouterr().out
+    assert code == 1 and "個しか来ない" in out and "# ERR imu not found" in out
+
+
+def test_missing_port_gives_hint_not_traceback(capsys):
+    with pytest.raises(SystemExit) as e:
+        main(["stream", "--port", "/dev/no-such-port"])
+    err = capsys.readouterr().err
+    assert e.value.code == 2 and "ls /dev/ttyACM*" in err and "usbipd" in err

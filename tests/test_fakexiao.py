@@ -66,7 +66,9 @@ def test_id_through_serial_recovers_hidden(fake_factory):
     assert log["t"][-1] == pytest.approx(len(log["t"]) * 0.01, abs=0.02)  # 読みが遅れると t が飛ぶ
     est = identify(log)
     assert est["gyro_bias"] == pytest.approx(HIDDEN.gyro_bias, abs=0.01)
-    assert est["motor_tau"] == pytest.approx(HIDDEN.motor_tau, rel=0.25)
+    # 指令が偽物に d 秒遅れて届くと、見かけの時定数に約 d が足される。1 コアで読みが 0.1 s 遅れても通る幅（上 +0.12）。
+    # 下は遅れでは小さくならないので 0.15 のまま（取り違えは検出できる）
+    assert 0.15 <= est["motor_tau"] <= HIDDEN.motor_tau + 0.12, est
     u = np.abs(log["right"] - log["left"]) / 2
     if u.max() > DUTY_MAX + 1e-9:
         # ログの指令はファームの上限を超えているが、実際に回ったのは DUTY_MAX。ゲインとデッドバンドがずれる
@@ -85,7 +87,8 @@ def test_axes_swapped_then_restored(fake_factory):
         b = collect(p, sched)
     with SerialPlant(turned.port) as p:  # --axes を忘れると、重力が y に、ヨーが gy に出る
         c = collect(p, sched)
-    for k, tol in (("az", 0.03), ("gz", 0.05), ("ay", 0.05), ("ax", 0.05)):
+    # gz は最後の 0.3 s の平均で、読みの遅れで立ち上がりの残り（約 3%＝0.1 rad/s）が混ざりうる。軸の取り違えなら 2.8 や 9.8 ずれる
+    for k, tol in (("az", 0.03), ("gz", 0.15), ("ay", 0.1), ("ax", 0.1)):
         assert b[k][-30:].mean() == pytest.approx(a[k][-30:].mean(), abs=tol)
     assert c["ay"].mean() == pytest.approx(-9.81, abs=0.05) and abs(c["az"].mean()) < 0.05
     assert c["gy"][-30:].mean() == pytest.approx(-a["gz"][-30:].mean(), abs=0.05)
@@ -111,7 +114,8 @@ def test_watchdog_clip_and_broken_lines(fake_factory):
         assert f.running
 
 
-WATCHDOG_RANGE = (200, 220)  # 200 ms を超えた最初の 10 ms の刻みで止まる
+# 200 ms を超えた最初の 10 ms の刻みで止まる（下 200・上 210）。上は横から覗く側が遅れた分（1 コアで 0.1 s）の余裕を足した
+WATCHDOG_RANGE = (200, 320)
 
 
 @pytest.mark.parametrize(

@@ -63,7 +63,7 @@ def to_params(m: Motor, j_eff: float, base: Params = Params()) -> Params:
 def mujoco_model():
     """models/diffdrive.xml の定数を Motor と j_eff で表す。トルク = 0.05·u − (0.05/30)·ω
     になるように n=1・b=0・Kt=Ke=0.05 と置き、傾き Kt²/R = 0.05/30 から R = 1.5 Ω、
-    停動 Kt·V/R = 0.05 から V = 1.5 V。傾きは全部が逆起電力なので、R を足すと K が下がる。"""
+    停動 Kt·V/R = 0.05 から V = 1.5 V。傾きは全部が逆起電力。b = 0 なので R を足しても K は変わらず、τ が延びる。"""
     kt, slope = 0.05, 0.05 / 30
     r_coil = kt**2 / slope
     m = Motor(V=0.05 * r_coil / kt, R=r_coil, L=1e-6, Kt=kt, n=1.0, b=0.0)

@@ -26,8 +26,9 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3 # Python は uv が .python-version を読む
       - run: uv sync --locked --extra mujoco --extra viz
       # tests/test_fakexiao.py と tests/test_real_loop.py は pty を実時間の 2 倍速で使うので、
-      # 遅いランナーでは時間切れで落ちうる。失敗時にもう 1 回だけ回す（2 回とも落ちたら本物の失敗）。
-      - run: uv run pytest -q || { echo "::warning::pytest が 1 回目に失敗。もう 1 回回す"; uv run pytest -q; }
+      # 遅いランナーでは時間切れで落ちうる。失敗時は、落ちた試験だけをもう 1 回回す（--lf。2 回とも落ちたら本物の失敗）。
+      # どの試験が揺れたかは 1 回目のログと警告に残る。
+      - run: uv run pytest -q || { echo "::warning::pytest が 1 回目に失敗（落ちた試験は上のログ）。落ちた試験だけ回し直す"; uv run pytest -q --lf; }
 
   firmware:
     runs-on: ubuntu-latest
