@@ -119,3 +119,5 @@ def test_commands_that_need_mujoco_are_skipped_without_it(tmp_path):
     md.write_text("```\n$ uv run python -c \"import mujoco_nowhere\"\n1\n$ uv run python -c \"import sys; sys.stderr.write(\\\"No module named 'mujoco'\\\")\"\n1\n```\n")
     r = run_file(md, False)
     assert [x[2] for x in r] == ["差", "飛ばした"] and r[1][3] == "mujoco なし"
+    md.write_text("```\n$ uv run python -c \"raise SystemExit('mujoco が入っていない。x')\"\n1\n```\n")
+    assert run_file(md, False)[0][2] == "飛ばした"

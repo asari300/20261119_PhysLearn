@@ -17,7 +17,7 @@ CI に入れるなら main への push だけ（`permissions: contents: read`・
        それが書くファイルを読む後続のコマンドも飛ばす。`--extra mujoco` は `--mujoco` のときだけ走らせる。
 比較: 数字は期待の最後の桁の半分 + 1e-9 以内で一致（小数点も指数も無い整数は厳密に一致）、数字以外は完全一致、
      `...` を含む期待の行は飛ばす、空行は無視。
-`--mujoco` なしのとき、`ModuleNotFoundError: No module named 'mujoco'` で落ちたコマンドと `--plant mujoco`・`--real mujoco` は「飛ばした（mujoco なし）」。
+`--mujoco` なしのとき、`ModuleNotFoundError: No module named 'mujoco'`・「mujoco が入っていない」で落ちたコマンドと `--plant mujoco`・`--real mujoco` は「飛ばした（mujoco なし）」。
 --strict（既定は無効。正しく書いた章でも「差」が増えうる）: コマンドが 0 以外の終了コードなのに期待が例外・usage を見せていなければ「差」、
      FileNotFoundError は飛ばしたコマンドが作るはずのファイルの名前が stderr にあるときだけ「飛ばした」、`uv run` 以外は飛ばす。
 """
@@ -195,7 +195,7 @@ def run_file(path, mujoco, strict=False):
                     p = cache[cmd]
                 else:
                     p = cache[cmd] = subprocess.run(cmd, shell=True, cwd=d, env=env, text=True, capture_output=True, timeout=900)
-                if not mujoco and "No module named 'mujoco'" in p.stderr:
+                if not mujoco and ("No module named 'mujoco'" in p.stderr or "mujoco が入っていない" in p.stderr):
                     why = why or "mujoco なし"
                     continue
                 # 章の中に入力ファイルを作る手順が無い。--strict では飛ばしたコマンドの出力のファイル名が出ているときだけ
