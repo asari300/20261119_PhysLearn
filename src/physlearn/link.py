@@ -19,12 +19,22 @@ from physlearn.log import write_csv
 BAUD = 115200
 STOP = b"S\n"
 G = 9.80665
+DUTY_MAX = 0.6  # スケッチの DUTY_MAX と同じ（tests/test_link.py が照合）。ログに MCU が実際に出す値を残すため
+
+
+def limit(cmd: Command) -> Command:
+    """MCU と同じく |duty| を DUTY_MAX で切る。有限でなければ ValueError。"""
+    left, right = float(cmd.left), float(cmd.right)
+    # NaN は min/max を素通りして -1（全速逆転）になるので、送らずに止める
+    if not (np.isfinite(left) and np.isfinite(right)):
+        raise ValueError(f"有限でない指令 {cmd}")
+    return Command(*(min(DUTY_MAX, max(-DUTY_MAX, v)) for v in (left, right)))
 
 
 def encode_command(cmd: Command) -> bytes:
-    """指令 1 行。範囲外は -1..1 に丸める（ファームも上限で丸める）。"""
-    left, right = (min(1.0, max(-1.0, float(v))) for v in (cmd.left, cmd.right))
-    return f"M {left:.3f} {right:.3f}\n".encode()
+    """指令 1 行（`limit` を通した値）。"""
+    c = limit(cmd)
+    return f"M {c.left:.3f} {c.right:.3f}\n".encode()
 
 
 def decode_sample(line: bytes | str) -> Obs | None:
@@ -70,6 +80,7 @@ class SerialPlant:
         self.t_target = 0.0  # 次に待つ時刻（reset からの秒）。dt を積んで時刻のずれを溜めない
         self.last_cmd = STOP
         self.sent_at = 0.0
+        self.last_mcu_t = -np.inf  # 前のサンプルの MCU 時刻 [s]。戻ったら止める
 
     def _send(self, line: bytes) -> None:
         self.ser.write(line)
@@ -83,8 +94,14 @@ class SerialPlant:
             # MCU のウォッチドッグ (200 ms) より短い間隔で同じ指令を送り直す
             if time.monotonic() - self.sent_at > 0.05:
                 self._send(self.last_cmd)
-            s = decode_sample(self.ser.readline())
+            line = self.ser.readline()
+            # timeout で途中まで読んだ行は最後の数が切れていても数として読めてしまう
+            s = decode_sample(line) if line.endswith(b"\n") else None
             if s is not None:
+                # MCU の再起動・millis の桁あふれで時刻が戻ると、step が t_target に届かず走り続ける
+                if s.t < self.last_mcu_t:
+                    raise RuntimeError(f"MCU の時刻が戻った ({self.last_mcu_t} -> {s.t} s)")
+                self.last_mcu_t = s.t
                 a = self.rot @ (s.ax, s.ay, s.az)
                 g = self.rot @ (s.gx, s.gy, s.gz)
                 return Obs(s.t - self.t0, *a, *g)
@@ -95,6 +112,7 @@ class SerialPlant:
             self._send(STOP)
             self.ser.reset_input_buffer()
             self.t0 = 0.0
+            self.last_mcu_t = -np.inf
             first = self._next()
             self.t0 = first.t
             self.t_target = 0.0
@@ -141,7 +159,8 @@ def record(plant: SerialPlant, schedule, dt: float, out: str) -> None:
         for seconds, cmd in schedule:
             for _ in range(round(seconds / dt)):
                 o = plant.step(cmd, dt)
-                w.writerow([f"{getattr(o, k):.6g}" for k in LOG_COLUMNS[:7]] + [cmd.left, cmd.right])
+                sent = limit(cmd)  # 頼んだ値ではなく MCU が出す値を残す
+                w.writerow([f"{getattr(o, k):.6g}" for k in LOG_COLUMNS[:7]] + [sent.left, sent.right])
 
 
 def main(argv=None) -> None:
@@ -153,6 +172,8 @@ def main(argv=None) -> None:
     p.add_argument("--dt", type=float, default=0.01)
     p.add_argument("--seconds", type=float, default=10.0, help="still の長さ")
     a = p.parse_args(argv)
+    if not (0 < a.dt < 1 and 0 < a.seconds < 3600):  # NaN も弾く
+        p.error("--dt は 0〜1 秒、--seconds は 0〜3600 秒")
     with SerialPlant(a.port, a.axes) as plant:
         if a.mode == "still":
             record(plant, [(a.seconds, Command(0.0, 0.0))], a.dt, a.out)
