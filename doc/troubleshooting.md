@@ -9,7 +9,7 @@
 | （文書より） | 既存の文書かコード・CI の設定から拾っただけ。走らせていない |
 | 【実機では未確認】 | 実機が無いと確かめようがない。実機の手順書（[bringup](bringup.md)）自体が、まだ実機で通していない |
 
-実機の診断を 1 本で回す道具 `python -m physlearn.hwcheck` を追加予定（S050。できたらここに足す）。
+実機の診断を 1 本で回す道具 `python -m physlearn.hwcheck stream|axes --port ...` がある（モーターは回さない。`stream` はサンプル周期・欠け・`# ERR`・加速度のノルム・飽和を基準つきで、`axes` は 3 つの姿勢から `--axes` を出す。[bringup](bringup.md)）。
 章へのリンク: [setup](setup.md)、[bringup](bringup.md)、[protocol](protocol.md)、[03 章](textbook/03-hardware-firmware.md)、[09 章](textbook/09-safety.md)、[11 章](textbook/11-imu-lab.md)、[12 章](textbook/12-fake-xiao.md)、[14 章](textbook/14-fit-check.md)、[15 章](textbook/15-mismatch.md)。
 
 ## まずこれを試す
@@ -41,25 +41,25 @@
 - **`usbipd bind` が失敗する。** 管理者権限が要る。→ 管理者の PowerShell で。`attach` は管理者が要らない。（文書より: [setup 3.1・5](setup.md)）
 - **`usbipd attach` で失敗、または WSL の `lsusb` に出ない。** WSL の VM が止まっている、またはカーネルが古い（5.10.60.1 以上が要る）。→ WSL の端末を開いたままにする。`wsl --update`。確かめ: `uname -r`、`lsusb`。（文書より: [setup 3.1・3.2](setup.md)）
 - **`/dev/ttyACM0` が無い。** `ls -l /dev/ttyACM*`。attach 済みで `lsusb` に出ているのに無いなら CDC ACM のモジュールが読まれていない。→ `sudo modprobe cdc_acm`。自動で読まれるかは【実機では未確認】。（[setup 3.2](setup.md)）
-- **`[Errno 13] could not open port /dev/ttyACM0: [Errno 13] Permission denied`** ✔ 再現（`chmod 000` した擬似端末で原文を確認。原因が `dialout` かどうかは実機では未確認）。→ `groups | grep -w dialout`、無ければ `sudo usermod -aG dialout $USER` して入り直す。（[setup 3.2・5](setup.md)）
-- **`serial.serialutil.SerialException: [Errno 2] could not open port /dev/ttyACM9: [Errno 2] No such file or directory: '/dev/ttyACM9'`** ✔ 再現。ポート名の違い、または USB が WSL に渡っていない。ポート名は環境で変わる。→ `ls /dev/ttyACM*` で今の名前を見る。出ないときは上の 2 項。偽の XIAO の名前は起動のたびに変わる（`/dev/pts/N`）。✔ 再現
+- **`error: ポート /dev/ttyACM0 が開けない（[Errno 13] could not open port /dev/ttyACM0: [Errno 13] Permission denied）。…`**（`link`・`hwcheck` は開けなかったとき、原文を括弧に入れて案内を添えた 1 行で終わる。終了コード 2）✔ 再現（`chmod 000` した擬似端末で原文を確認。原因が `dialout` かどうかは実機では未確認）。→ `groups | grep -w dialout`、無ければ `sudo usermod -aG dialout $USER` して入り直す。（[setup 3.2・5](setup.md)）
+- **`error: ポート /dev/ttyACM9 が開けない（[Errno 2] could not open port /dev/ttyACM9: [Errno 2] No such file or directory: '/dev/ttyACM9'）。`ls /dev/ttyACM*` で名前を確かめる。WSL2 なら doc/setup.md の usbipd の節…`**（以前は `serial.serialutil.SerialException` のトレースバックだった。自分で `serial.Serial` を開くと今も出る）✔ 再現。ポート名の違い、または USB が WSL に渡っていない。ポート名は環境で変わる。→ `ls /dev/ttyACM*` で今の名前を見る。出ないときは上の 2 項。偽の XIAO の名前は起動のたびに変わる（`/dev/pts/N`）。✔ 再現
 
 ## シリアルと取り決め
 
 - **`TimeoutError: 1.0 秒間 IMU のサンプルが来ない`**（秒数は `SerialPlant.timeout`）✔ 再現（何も返さない擬似端末で）。原因の候補: ポートが違う、別のスケッチが入っている、IMU の初期化に失敗している、別のプログラム（miniterm など）がポートを握っている、USB が抜けた。→ miniterm で `I` の行が流れるか。流れなければ次の項。（[protocol](protocol.md)）
-- **`TimeoutError: ...（MCU の最後の報告: # ERR imu not found）`** ✔ 再現（MCU の代わりにその行を流した）。スケッチが IMU を見つけられていない。モーターの指令は受ける。→ ① 「Sense」の付く基板か（付かない XIAO に IMU は無い）。② スケッチの `LSM6DS3 imu(I2C_MODE, 0x6A)` を 0x6B にして書き込む。③ 非 mbed 版で出続けるなら mbed 版（FQBN `Seeeduino:mbed:xiaonRF52840Sense`、未確認）で書き込み直す。（[03 章 3.3・3.5](textbook/03-hardware-firmware.md)、[bringup 段 1](bringup.md)。実機では【実機では未確認】）
+- **`TimeoutError: ...（MCU の最後の報告: # ERR imu not found）`**（`hwcheck stream` も、サンプルが来ないときの `NG` の行に同じ報告を添える）✔ 再現（MCU の代わりにその行を流した）。スケッチが IMU を見つけられていない。モーターの指令は受ける。→ ① 「Sense」の付く基板か（付かない XIAO に IMU は無い）。② アドレスは変えない: XIAO nRF52840 Sense（V1.1 の基板）は IMU の SA0 が GND に固定で、アドレスは 0x6A のまま。0x6B にしても読めない。電源（IMU の電源 P1.08 が High になっているか）・`Wire1`（IMU はこちらの I2C につながる）・ライブラリ（`Seeed Arduino LSM6DS3`）・コアの種類を疑う（根拠: `log/review/2026-11-19-s055-audit5-claude.md` E1、`s043-audit4`）。③ 非 mbed 版で出続けるなら mbed 版（FQBN `Seeeduino:mbed:xiaonRF52840Sense`、未確認）で書き込み直す。（[03 章 3.3・3.5](textbook/03-hardware-firmware.md)、[bringup 段 1](bringup.md)。実機では【実機では未確認】）
 - **`# ERR bad line`** ✔ 再現（`hello`、`M 1 x`、`M nan 0`、`M inf 0` で出る）。MCU が解釈できない行を捨てた。形は `M <左> <右>`（数が 2 つ、区切りは空白）と `S` だけ。数にならない値（NaN・無限大を含む）も捨てる。壊れた行はウォッチドッグを延ばさない。→ 手で打つときは `M 0.3 0.3`。（[protocol](protocol.md) 「エラーの扱い」）
 - **`# ERR line too long`** ✔ 再現（`M ` に 60 桁続けた）。47 文字を超えた行。端末から長い文を流し込んだとき。→ 1 行を短くする。（[protocol](protocol.md)）
 - **`RuntimeError: MCU の時刻が戻った (1.02 -> 0.5 s)`** ✔ 再現（時刻が戻る行を流した）。MCU が再起動した（電源の揺れ、USB の抜き差し、リセットの押下）、または `millis` が桁あふれした（約 49 日）。→ 実機ならモーター電源が XIAO の 3V3/5V から出ていないか、GND が共通かを見る（[09 章 電源](textbook/09-safety.md)）。ログを取り直す。
 - **`ValueError: 有限でない指令 Command(left=nan, right=0)`** ✔ 再現。制御器か計算が NaN を出した。`SerialPlant` は送らずに `S` を送って止める。→ 制御器のゲイン・入力を見る。`--left nan` のようにコマンドラインで渡した場合は、先に `--left・--right は ±0.6 以内` で弾かれる（下の「コマンドの引数」）。
 - **`I` の行が 1 秒に 100 行より少ない。** PC が読まないと MCU は送信バッファが埋まった周期のサンプルを捨てる（止まってウォッチドッグが効かなくなるのを避けるため）。端末で貼り付けた長い文があった場合も同じ。（文書より: [protocol](protocol.md)）
-- **コマンドの引数。** ✔ 再現。原文: `--left・--right は ±0.6 以内`、`--target は 0〜5.0 rad/s（負の向きは自動で回す）`、`--tc は 0.03〜1 秒`、`--dt は 0〜1 秒、--seconds は 0〜1.0 秒`（jog は 1.0、run は 3.0）、`still には --out が要る`。→ 範囲を守る。上限は安全のために決めてある（[03 章 3.9](textbook/03-hardware-firmware.md)）。
+- **コマンドの引数。** ✔ 再現。原文: `--left・--right は ±0.6 以内`、`--target は 0〜5.0 rad/s（負の向きは自動で回す）`、`--tc は 0.03〜1 秒`、`--dt は 0〜1 秒（今 0.0）`、`--seconds は 0〜1.0 秒（今 5.0）`（どちらが悪いかを別々に言う。jog は 1.0、run は 3.0、still・id は 3600）、`still には --out が要る`。→ 範囲を守る。上限は安全のために決めてある（[03 章 3.9](textbook/03-hardware-firmware.md)）。
 
 ## 軸の向きと符号（`--axes`）
 
 - **`ValueError: axes '-x,y,z' は回転になっていない（各軸 1 回・右手系に）`** ✔ 再現（`x,x,z` でも同じ）。鏡映や、同じ軸の重複は受け付けない。→ 基板を回して付けた分を、符号つきで入れ替える（例 `y,-x,z`、`-y,x,z`）。右手系になる組だけ。（[protocol](protocol.md)、[03 章 3.7](textbook/03-hardware-firmware.md)）
-- **`python -m physlearn.link: error: argument --axes: expected one argument`** ✔ 再現（`--axes -x,y,z`）。`-` で始まる値を argparse がオプションと読む。→ `--axes=-x,y,z` と `=` でつなぐ。
-- **`ValueError: substring not found`** ✔ 再現（`--axes a,b,c`）。軸の名前は `x`・`y`・`z`（と `-`・`+`）だけ。メッセージからは軸の綴りの誤りと分かりにくい。→ `x,y,z` の並べ替えにする。
+- **`python -m physlearn.link: error: argument --axes: expected one argument`** 以前は `--axes -x,y,z` で出た（`-` で始まる値を argparse がオプションと読む）。`link` は `--axes -x,y,z` も `--axes=-x,y,z` も通すようにした。`fakexiao` の `--axes` は今も `=` が要る（`--axes=-x,y,z`）。
+- **`error: --axes: axes 'a,b,c' は読めない。x・y・z を 3 つ、…。'a' は軸の名前でない`** ✔ 再現（以前は `ValueError: substring not found`）。軸の名前は `x`・`y`・`z`（と `-`・`+`）を 3 つ、コンマ区切り。→ `x,y,z` の並べ替えにする。
 - **`az` が 9.81 にならない。** `uv run python -m physlearn.imu still still.csv` の平均と傾き（roll・pitch）を見る。`az ≈ -9.8` なら基板が裏返し。重力が `ax` か `ay` に出ているなら基板を立てて付けた。→ `--axes` で付け替える。偽の XIAO を `--axes x,z,-y` で立てて `--axes` なしで取ると `ay ≈ -9.8`、`--axes x,z,-y` を付けると `az ≈ +9.8` に戻った。✔ 再現。数 % のずれは机の傾きやケーブルの重みでも出る。（[03 章 3.7](textbook/03-hardware-firmware.md)、[11 章 実験 1](textbook/11-imu-lab.md)、[12 章 演習 1](textbook/12-fake-xiao.md)）
 - **4 つの向きの符号が合わない**（水平で `az` 正、鼻上げで `ax` 正、左上げで `ay` 正、反時計回りで `gz` 正）。→ `link still` で記録しながら姿勢を変え、CSV の列を見て `--axes` を決める。以後の `link` コマンドすべてに同じ値を付ける。（[03 章 3.7](textbook/03-hardware-firmware.md)、[bringup 段 3](bringup.md)。【実機では未確認】）
 
@@ -91,7 +91,7 @@
 - **`動いたステップが 2 つ未満なので、ゲイン・時定数・デッドバンドは推定しない（元の値のまま）`** ✔ 再現（`link still` の静止ログを `sysid` に掛けた。出力は `gyro_bias` と `gyro_noise` だけ）。「動いたステップ」は、定常の `gz` が静止の雑音の 10 倍を超えた段。2 つ以上要るのは、傾きと切片から K と deadband を出すため。静止ログなら正常。同定用のログなのに出るなら: モーターが動いていない（電源・配線）、車輪を浮かせた、duty が小さすぎる、安全ゲートが止めた（次の項）。→ CSV の `left`・`right` 列と `gz` 列を見る。
 - **`ValueError: 最初に静止区間 (指令 0) が 20 行以上いる`** ✔ 再現（ログの先頭 1.5 s を切り落とした）。ログの先頭が静止でない、または静止が短い。→ `link id` が取ったログをそのまま渡す（先頭に静止 1 s が付く）。
 - **`ValueError: xxx.csv: 列が足りない ['gz']`** ✔ 再現。CSV の見出しは `t,ax,ay,az,gx,gy,gz,left,right`。→ 見出しの綴りと列を直す。
-- **結果が変: `deadband 0.0000`、`motor_tau 0.0100`（探索範囲の下端）、`RankWarning: Polyfit may be poorly conditioned`。** ✔ 再現（ゲートが途中から指令を 0 にしたログで）。`SafetyGate` が作動すると以後ずっと (0, 0) を返し、**`sim-log` も `link id` もそのことを知らせない**。→ CSV を開き、`left`・`right` が途中から全部 0 になっていないか、`gz` が 15 rad/s を超えていないかを見る。取り直す。
+- **結果が変: `deadband 0.0000`、`motor_tau 0.0100`（探索範囲の下端）、`RankWarning: Polyfit may be poorly conditioned`。** ✔ 再現（ゲートが途中から指令を 0 にしたログで）。`SafetyGate` が作動すると以後ずっと (0, 0) を返す。`sim-log` と `link id` は標準エラーに `# 安全ゲートが作動した（|gz| > 15.0、t = … s）。以後の指令は 0 になり、このログは同定に使えない` を 1 行出す（標準出力と CSV は変わらない。以前は無言だった）。→ その行が出ていたら、CSV を開き、`left`・`right` が途中から全部 0 になっていないか、`gz` が 15 rad/s を超えていないかを見る。取り直す。
 - **ゲインが想定（真値）より少し小さい。** 各段の後ろ 30% を定常とみなすため、時定数が大きいと落ち着く前の値を拾う。既知の偏りで、直していない。（文書より: [05 章](textbook/05-real2sim.md)、[14 章](textbook/14-fit-check.md) の (a)）
 - **`deadband` が 0 になる。** 傾きと切片の直線で、切片が負（＝いちばん小さい段が既にデッドバンドより大きい）だと 0 に丸める。指令の段が全部デッドバンドより大きいと、本当の値は見えない。→ 小さい段を足して取る。（コードを読んだだけ: `sysid.py`）
 - **同定値が `randomize.SPREAD` の幅の外・取るたびに揃わない。** 電池や床で変わる。→ 何回か取って `python -m physlearn.compare spread a.json b.json ...` で幅を見る。（[14 章](textbook/14-fit-check.md)、[bringup 段 7](bringup.md)）

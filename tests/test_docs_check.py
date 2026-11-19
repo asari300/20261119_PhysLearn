@@ -1,4 +1,4 @@
-from physlearn.docs_check import auto_skip, compare, extract, same
+from physlearn.docs_check import auto_skip, compare, extract, run_file, same, unsafe
 
 I = '''text
 <!-- docs_check: skip 長いので -->
@@ -72,3 +72,28 @@ def test_auto_skip():
     assert auto_skip("uv run python -m physlearn.link id --port /dev/pts/1", False)
     assert auto_skip("uv run --extra mujoco physlearn x", False) and not auto_skip("uv run --extra mujoco physlearn x", True)
     assert auto_skip("uv run physlearn loop-demo", False) is None
+
+
+def test_integers_must_match_exactly_but_decimals_keep_their_tolerance():
+    assert not same("n 12", "n 12.4") and not same("n 3", "n 3.2") and same("n 12", "n 12.0") and same("n 12", "n 12")
+    assert same("x 0.12", "x 0.1204") and same("x 1e-3", "x 0.0012")  # 小数・指数の許容は従来どおり
+
+
+def test_unsafe_commands_for_strict_mode():
+    assert unsafe("echo hi") == "uv run 以外" and unsafe("cat a | head") == "uv run 以外"
+    for bad in ("uv run x; rm a", "uv run x && y", "uv run x > out", "uv run x $(id)", "uv run x `id`"):
+        assert unsafe(bad), bad
+    for ok in ('uv run python -c "print(1 > 0); x = 2"', "uv run physlearn sysid a.csv", "uv run x | head -3", "uv run python -c 'print(\"$(x)\")'"):
+        assert unsafe(ok) is None, ok
+
+
+def test_strict_flags_nonzero_exit_and_missing_file(tmp_path):
+    md = tmp_path / "c.md"
+    md.write_text(
+        "```\n$ uv run python -c \"print(0.12); raise SystemExit(3)\"\n0.12\n```\n\n"
+        "```\n$ uv run python -c \"open('nope.csv')\"\nok\n```\n"
+    )
+    assert [r[2] for r in run_file(md, False)] == ["一致", "飛ばした"]  # 従来の判定（誤りを含む）は既定のまま
+    r = run_file(md, False, strict=True)
+    assert r[0][2] == "差" and "終了コード 3" in r[0][3][1]
+    assert r[1][2] == "差"  # 飛ばしたコマンドの出力でない FileNotFoundError は本物のバグ

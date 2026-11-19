@@ -1,6 +1,10 @@
 """章に貼った「実際に走らせた出力」を走らせ直して比べる（数値を動かす作業の最後に手で回す。pytest には入れない）。
 
-    uv run python -m physlearn.docs_check [章のファイル ...] [--mujoco]
+    uv run python -m physlearn.docs_check [章のファイル ...] [--mujoco] [--strict]
+
+注意: 章の中のコマンドを、シェル (`shell=True`) でそのまま実行する。信頼できない章（第三者の PR）に対して回さない。
+CI に入れるなら main への push だけ（`permissions: contents: read`・シークレット無し）。`--strict` は `uv run` で始まらない
+コマンドと `;`・`&&`・リダイレクト・`$(...)` を含むコマンドを飛ばすが、守りとしては不十分（`uv run` の引数は信用している）。
 
 対象の書き方（章のコードブロックの形）:
   (i)  `$ ` で始まる行から始まるブロック: `$ ` の行がコマンド、次の `$ ` の行かブロックの終わりまでが期待する出力。
@@ -9,7 +13,10 @@
        言語指定なしのブロックが期待する出力。言語指定が `text` のブロックは「抜粋」で、行を順に含んでいれば一致とする。
 飛ばす: ブロックの直前に `<!-- docs_check: skip 理由 -->`。印が無くても `--port`・`fakexiao`・`pytest` は飛ばし、
        それが書くファイルを読む後続のコマンドも飛ばす。`--extra mujoco` は `--mujoco` のときだけ走らせる。
-比較: 数字は期待の最後の桁の半分 + 1e-9 以内で一致、数字以外は完全一致、`...` を含む期待の行は飛ばす、空行は無視。
+比較: 数字は期待の最後の桁の半分 + 1e-9 以内で一致（小数点も指数も無い整数は厳密に一致）、数字以外は完全一致、
+     `...` を含む期待の行は飛ばす、空行は無視。
+--strict（既定は無効。正しく書いた章でも「差」が増えうる）: コマンドが 0 以外の終了コードなのに期待が例外・usage を見せていなければ「差」、
+     FileNotFoundError は飛ばしたコマンドが作るはずのファイルの名前が stderr にあるときだけ「飛ばした」、`uv run` 以外は飛ばす。
 """
 
 import argparse
@@ -115,7 +122,8 @@ def same(exp, act):
     for x, y in zip(e, a):
         mant, _, ex = x.lower().partition("e")
         dec = len(mant.split(".")[1]) if "." in mant else 0
-        if abs(float(x) - float(y)) > 10 ** (int(ex or 0) - dec) / 2 + 1e-9:
+        tol = 0 if not ex and "." not in mant else 10 ** (int(ex or 0) - dec) / 2  # 整数（件数・回数）は厳密に
+        if abs(float(x) - float(y)) > tol + 1e-9:
             return False
     return True
 
@@ -148,16 +156,26 @@ def auto_skip(cmd, mujoco):
         return "mujoco なし"
 
 
-def run_file(path, mujoco):
+def unsafe(cmd):
+    """--strict: 実行してよくない形なら理由、よければ None。"""
+    if not cmd.startswith("uv run"):
+        return "uv run 以外"
+    no_single = re.sub(r"'[^']*'", "", cmd)
+    no_quotes = re.sub(r'"[^"]*"', "", no_single)
+    if re.search(r"\$\(|`", no_single) or re.search(r";|&&|\|\||>|<", no_quotes):
+        return "uv run 以外の操作（; && > $( など）を含む"
+
+
+def run_file(path, mujoco, strict=False):
     """[(行, 先頭行の文字列, 結果, 詳細)] を返す。"""
     rows, missing = [], set()  # missing: 飛ばしたコマンドが書くはずのファイル
     env = {**os.environ, "PYTHONHASHSEED": "0"}
     with tempfile.TemporaryDirectory() as d:
         for u in extract(Path(path).read_text()):
-            out, why, ran, head = [], None, False, u.cmds[0].split("\n")[0]
+            out, why, ran, head, codes = [], None, False, u.cmds[0].split("\n")[0], []
             for cmd in u.cmds:
                 toks = cmd.split()
-                r = u.skip or auto_skip(cmd, mujoco) or ("前のコマンドを飛ばした" if missing & set(toks) else None)
+                r = u.skip or auto_skip(cmd, mujoco) or (strict and unsafe(cmd)) or ("前のコマンドを飛ばした" if missing & set(toks) else None)
                 if r:
                     why = why or r
                     missing |= {t for t in toks if re.fullmatch(r"[\w./-]+\.(csv|json)", t) and not (Path(d) / t).exists()}
@@ -165,9 +183,11 @@ def run_file(path, mujoco):
                 if cmd.startswith("uv run"):
                     cmd = f"uv run --quiet --project {shlex.quote(str(ROOT))}" + cmd[len("uv run"):]
                 p = subprocess.run(cmd, shell=True, cwd=d, env=env, text=True, capture_output=True, timeout=900)
-                if p.returncode and "FileNotFoundError" in p.stderr:  # 章の中に入力ファイルを作る手順が無い
+                # 章の中に入力ファイルを作る手順が無い。--strict では飛ばしたコマンドの出力のファイル名が出ているときだけ
+                if p.returncode and "FileNotFoundError" in p.stderr and (not strict or any(m in p.stderr for m in missing)):
                     why = why or "入力ファイルが無い"
                     continue
+                codes.append(p.returncode)
                 out += (p.stdout + p.stderr).split("\n")
                 head = head if ran else cmd.split("\n")[0].replace(f" --quiet --project {shlex.quote(str(ROOT))}", "")
                 ran = True
@@ -177,6 +197,9 @@ def run_file(path, mujoco):
                 rows.append((u.line, head, "飛ばした", why))
                 continue
             diff = compare(u.expected, out, u.excerpt)
+            bad = [c for c in codes if c]
+            if strict and diff is None and bad and not re.search(r"Error|Traceback|usage:|error:", "\n".join(u.expected)):
+                diff = ("(終了コード 0)", f"(終了コード {bad[0]})")
             rows.append((u.line, head, "一致" if diff is None else "差", diff))
     return rows
 
@@ -185,12 +208,13 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("files", nargs="*", help="章のファイル（無ければ対象の章すべて）")
     ap.add_argument("--mujoco", action="store_true", help="`--extra mujoco` のブロックも走らせる")
+    ap.add_argument("--strict", action="store_true", help="誤判定になりうる経路を塞ぐ（既定は無効。説明は冒頭）")
     a = ap.parse_args(argv)
     files = [Path(f) for f in a.files] or TARGETS
     n_diff, summary = 0, []
     for f in files:
         t0 = time.time()
-        rows = run_file(f, a.mujoco)
+        rows = run_file(f, a.mujoco, a.strict)
         for line, head, res, detail in rows:
             label = f"{res}（{detail}）" if res == "飛ばした" else res
             print(f"{f.name}:{line}\t{label}\t{head[:70]}")
