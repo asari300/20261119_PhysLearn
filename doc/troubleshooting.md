@@ -26,7 +26,7 @@
 - **`ModuleNotFoundError: No module named 'mujoco'`**。`python -m physlearn.cad`（16 章）は S093 から、MuJoCo が無ければこの例外ではなく「mujoco が入っていない」のメッセージで止まる（終了コード 1）。ほかに MuJoCo を直に読む所があれば、この例外のまま出る。→ `uv sync --extra mujoco --extra viz`。
 - **`No module named physlearn.__main__; 'physlearn' is a package and cannot be directly executed`** ✔ 再現。`python -m physlearn sysid ...` と打った。`physlearn` は `-m` で呼ぶ名前ではなく、コマンド名。→ `uv run physlearn sysid ...`。`python -m physlearn.link` のようにサブモジュールは `-m` で呼ぶ。
 - **`FileNotFoundError: [Errno 2] No such file or directory: 'xxx.csv'`**（`.json` も）✔ 再現。パスの打ち間違い、または作ったときと別のディレクトリにいる。→ `ls` で確かめる。`sim-log`・`link` は `--out` に書いた場所に作る。
-- **`uv run pytest` が落ちる・止まる。** 擬似端末を実時間の 2 倍速で使う試験（`tests/test_fakexiao.py`、`tests/test_real_loop.py`）は、遅い PC で時間切れになりうる。CI も 1 回だけ回し直す（[ci.yml](../.github/workflows/ci.yml)）。→ もう 1 回回す。2 回とも落ちたら本物の失敗。（文書より）
+- **`uv run pytest` が落ちる・止まる。** 偽の XIAO を使う試験は、S092 から壁時計に依らない仮想のポートで回るので、遅い PC でも時間切れにはならない作りになった（高い負荷での確認はしていない）。擬似端末を使う実時間の形の試験 1 本（`tests/test_fakexiao.py` の `test_pty_realtime_form_still_works`）だけは今も壁時計に依る。CI は失敗した試験をやり直さない（[ci.yml](../.github/workflows/ci.yml)）。→ 落ちた試験の名前を見て、その 1 本だけをもう 1 回回す。同じ試験が同じ所で落ちたら本物の失敗。（文書より）
 - **MuJoCo を 3.x から上げたら動かない。** 4.0 でパッケージが `mujoco-core`/`mujoco-studio`/`mujoco` に分かれた。→ 入れ直す（[setup 1.3](setup.md)）。描画（Studio・viewer）が WSL2 で動くかは、この PC でも未確認（実機とは関係なし）。
 
 ## Arduino と書き込み
@@ -127,6 +127,6 @@
 
 ## CI
 
-- **`test` が落ちる。** 手元で `uv sync --locked --extra mujoco --extra viz` のあと `uv run pytest -q`。擬似端末の試験が遅くて落ちたときは 1 回だけ回し直す設定。2 回落ちたら本物。（文書より: [ci.yml](../.github/workflows/ci.yml)）
+- **`test` が落ちる。** 手元で `uv sync --locked --extra mujoco --extra viz` のあと `uv run pytest -q`。失敗した試験のやり直しはしない設定（S092 が外した）。落ちたら本物の失敗として、ログの試験名から調べる。（文書より: [ci.yml](../.github/workflows/ci.yml)）
 - **`firmware` が落ちる。** コンパイルの最後に `python` と `adafruit-nrfutil` が要る。コアとライブラリの版は CI で固定してある。（文書より: [ci.yml](../.github/workflows/ci.yml)、[setup 2.3](setup.md)）
 - **章に貼った出力が今のコードとずれた。** `uv run python -m physlearn.docs_check`（章のコードブロックを走らせ直して比べる）。数字は期待の最後の桁の半分以内で一致とする。pytest には入っていない。（文書より: `docs_check.py` の説明）

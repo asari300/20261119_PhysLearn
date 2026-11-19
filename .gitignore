@@ -20,3 +20,6 @@ log/local/
 
 # Claude Code のローカル状態
 .claude/settings.local.json
+
+# SolidCraft の MCP の save が既存のファイルを上書きするとき、元のファイルを <名前>.bak に残す (S094)
+*.bak

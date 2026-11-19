@@ -34,7 +34,7 @@ IMU を載せた Seeed Studio XIAO と小さな 2 輪車で、Physical AI の基
 
 ```bash
 uv sync                    # MuJoCo と図も使うなら uv sync --extra mujoco --extra viz（教材の 08・14・16 章が使う）
-uv run pytest              # 通ることを確かめる（約 1.5 分。MuJoCo と図が要る試験は、入れていなければ skip）
+uv run pytest              # 通ることを確かめる（約 1 分。MuJoCo と図が要る試験は、入れていなければ skip）
 uv run physlearn loop-demo # 代役の実機で R2S → S2R を 1 周回す（約 10 秒）
 ```
 
@@ -76,7 +76,7 @@ uv run physlearn loop-demo # 代役の実機で R2S → S2R を 1 周回す（�
 | (C) 試し部品つき | (B) ＋ エンコーダー用の光センサー（次の一歩の試し） | 8,083 円 |
 
 - 第一候補のボードは **XIAO nRF52840 Sense**（IMU は LSM6DS3TR-C、技適あり）。
-- **在庫が細い。** 秋月の通販は残り 8 個（18:01。昼は 9 個）。次点は XIAO MG24 Sense（10/22 に値上がり）、在庫の保険は XIAO nRF54L15 Sense。スイッチサイエンスは商品ページが読めなかった（429）。
+- **在庫が細い。** 秋月の通販は残り 8 個（19:12 も 8 個。昼は 9 個）。次点は XIAO MG24 Sense（10/22 に値上がり）、在庫の保険は XIAO nRF54L15 Sense。スイッチサイエンスは商品ページが読めなかった（429）。
 - 車体は、元の Robo Base キット 2WD（10708）が売り切れ（発注者が在庫数 0 を確認）のため、ミニキット 2WD に決めた。**ミニの商品ページは誰も読めておらず**、付属品と寸法は検索の要約。注文の前に確かめる点が 5 つ残っている（発注リストの冒頭）。
 - モータードライバーは DRV8835（秋月 AE-DRV8835-S）。DRV8833 は秋月で見つからなかった。
 - 品番・URL・理由は [doc/research/2026-11-19-hardware.md](doc/research/2026-11-19-hardware.md)。

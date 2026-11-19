@@ -39,7 +39,7 @@ SolidCraft はオープンソースのパラメトリック CAD（https://solidc
 
 - **CLI は動いた。** v0.44.1 の Linux 版（WSL2・GPU なし）で、17:36 に S042 が、18:0x に監査 5 巡目（S055）が、この章のコマンドを走らせ直して出力が合った。`~/.local/bin/solidcraft-cli` で呼べる。落とした物・コマンド・出力は [調査](../research/2026-11-19-solidcraft.md) の「実際に動かした結果」。
 - **GUI・ブラウザー版は【未実行】。** 発注者が確かめる点は [cad/README.md](../../cad/README.md) の「どれを正にするか」。
-- **MCP は登録済み**（統括が 17:58 に実施。local スコープ、`--allow-path` 付き、`claude mcp list` で Connected）。**ツールごとの許可は未設定。次に Claude Code を起動したセッションからツールが出るかは【未確認】。** 許可された folder は main の `cad/` で、worktree の `cad/` は拒否される見込み（推論）。この進め方は未解決で、[doc/cad-mcp.md](../cad-mcp.md) の「未解決の点」に案を書いた。
+- **MCP は登録済み**（統括が 17:58 に実施。local スコープ、`--allow-path` 付き、`claude mcp list` で Connected）。**ツールごとの許可は未設定。次に Claude Code を起動したセッションからツールが出るかは【未確認】。** 試した結果は [doc/cad-mcp.md](../cad-mcp.md) にある（S094）。worktree の `cad/` は今の登録では開けない。どの範囲を許可するかは発注者が決める（推薦と危なさも同じ文書）。
 - 手引きは [doc/cad-mcp.md](../cad-mcp.md)。**正本は設計 JSON（`cad/plate_mount.design.json`）、コマンド列の `cad/plate_mount.json` はレシピ**。ブラウザー版は MCP につながらず、ファイル（設計 JSON）で受け渡す。
 
 1. ブラウザー版（https://solidcraft.io/app ）を開くか、Windows 側にインストールする【未実行】。Windows のインストーラーは SignPath で署名されているが、本番の証明書が入るまでは SmartScreen の警告が出ることがある、と公式の README が書く。版が毎日のように上がるので、使った版を記録しておく。
