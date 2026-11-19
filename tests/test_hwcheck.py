@@ -38,7 +38,8 @@ def test_stream_passes_period_gaps_and_gravity(fake_factory):
     with serial.Serial(f.port, BAUD, timeout=0.05) as ser:
         d, notes, bad = read(ser, 2.0)
     res = {c[0]: c for c in stream_checks(d, notes, bad)}
-    assert 180 <= len(d) <= 200
+    # 2.0 s / 10 ms = 200 個。読み始めと終わりの境で ±1〜2 個ずれうる（1 コアで 201 個を観測）ので上限に余裕。欠けは別の項目が見る
+    assert 180 <= len(d) <= 203
     for name in ("MCU 周期 平均", "MCU 周期 最大", "欠けたサンプル", "壊れた行", "PC 壁時計 周期 平均", "# ERR の行", "加速度ノルム - 9.81", "飽和の疑い"):
         assert res[name][2], res[name]
     assert np.diff(d[:, 0]).mean() == pytest.approx(10.0, abs=0.01)
