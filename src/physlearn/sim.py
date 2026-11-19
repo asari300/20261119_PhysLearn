@@ -64,12 +64,12 @@ class SimPlant:
 
     @property
     def v(self) -> float:
-        return self.p.wheel_radius * self.w.mean()
+        return float(self.p.wheel_radius * self.w.mean())
 
     @property
     def yaw_rate(self) -> float:
         """真のヨー角速度（sim だけが知っている。評価に使う）。"""
-        return self.p.wheel_radius * (self.w[1] - self.w[0]) / self.p.track
+        return float(self.p.wheel_radius * (self.w[1] - self.w[0]) / self.p.track)
 
     def _obs(self, a_lin: float) -> Obs:
         p, n = self.p, self.rng.normal
