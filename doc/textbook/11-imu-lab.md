@@ -48,7 +48,8 @@ uv run python -c "from physlearn.imu import stand_in; print(f'旋回の真のヨ
 uv run python -m physlearn.link still --port /dev/ttyACM0 --seconds 30 --out still.csv
 ```
 
-基板の向きが機体座標（x 前・y 左・z 上）と違うときは、`--axes` で合わせます（03 章）。
+ログを取る前に、`uv run python -m physlearn.hwcheck stream --port /dev/ttyACM0` で、行が欠けずに来ていること（周期 10 ms、欠け 0、`# ERR` 0）を確かめます（`link` を同じポートで動かしていないときに）。
+基板の向きが機体座標（x 前・y 左・z 上）と違うときは、`--axes` で合わせます（03 章）。向きは `uv run python -m physlearn.hwcheck axes --port /dev/ttyACM0` が割り出します。出た文字列が `-` で始まるときは、`--axes=-y,x,z` のように `=` でつなぎます（空白で分けると argparse に拒まれます）。
 この章では、基板の部品面を上にして机に置き、z が上を向くようにします。
 
 ## 実験 1 静止ログの特性

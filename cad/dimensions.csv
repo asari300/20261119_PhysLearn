@@ -1,21 +1,36 @@
 part,item,value,unit,source,url,fetched_jst,measured,note
-XIAO nRF52840 Sense,board_xy,21 x 17.8,mm,datasheet,https://wiki.seeedstudio.com/XIAO_BLE/,2026-11-19 13:59,,厚さ・USB-C の出っ張り・IMU の基板上の位置は【未確認】
-XIAO nRF52840 Sense,mass,【未確認】,g,,,,,
-XIAO nRF52840 Sense,imu_offset_on_board,【未確認】,mm,,,,,LSM6DS3TR-C の基板上の位置と軸の向き。届いたら印字と回して確かめる（link.py --axes）
-AE-DRV8835-S,board_xy,【未確認】,mm,,https://akizukidenshi.com/catalog/g/g109848/,,,取付穴の有無も【未確認】
-AE-DRV8835-S,mass,【未確認】,g,,,,,
-Cytron Robo Base 2WD,plate_xy,【未確認】,mm,,https://www.switch-science.com/products/10708,,,上板の外形と取付穴の位置・径。図面は見つけていない
-Cytron Robo Base 2WD,wheel_radius,【未確認】,mm,,,,,測ったら measured 欄に入れる。cad.dimension() が measured > datasheet > cad > assumed の順で読む
-Cytron Robo Base 2WD,track,【未確認】,mm,,,,,左右の車輪の接地点の間隔
-Cytron Robo Base 2WD,axle_to_caster_x,【未確認】,mm,,,,,
-Cytron Robo Base 2WD,mass,【未確認】,g,,,,,モーター 2 個と車輪込み
-電池ボックス 単3×4 (秋月 100311),box_xyz,【未確認】,mm,,https://akizukidenshi.com/catalog/g/g100311/,,,
-電池ボックス 単3×4 (秋月 100311),mass,【未確認】,g,,,,,
-単3 アルカリ電池,mass_each,【未確認】,g,,,,,4 本で約 0.1 kg と置いた（assumed）
-ブレッドボード EIC-801,board_xyz,【未確認】,mm,,https://akizukidenshi.com/catalog/g/g100315/,,,
-ブレッドボード EIC-801,mass,【未確認】,g,,,,,
-sim の今の値 (numpy Params),wheel_radius,16,mm,assumed,src/physlearn/sim.py,,,MJCF と食い違う。実物を測っていない。【S041 で Params の既定値は 30 mm に変えた。この行の値は変更前で古い】
-sim の今の値 (numpy Params),track,80,mm,assumed,src/physlearn/sim.py,,,MJCF と食い違う。【S041 で Params の既定値は 100 mm に変えた。この行の値は変更前で古い】
+XIAO nRF52840 Sense,board_xy,20.955 x 17.78,mm,datasheet,https://files.seeedstudio.com/wiki/XIAO-BLE/Seeed-Studio-XIAO-nRF52840V1.1-KiCad-Project-260105.zip,2026-11-19 17:39,,基板ファイル v1.1.kicad_pcb の Edge.Cuts の外接（x 138.0236〜158.9786、y 96.1136〜113.8936）。Seeed の仕様欄の 21 x 17.8（https://wiki.seeedstudio.com/XIAO_BLE/ 17:38）、秋月 117342（17:36）と丸めて同じ。USB-C の突き出しを含むかは【未確認】。調査は doc/research/2026-11-19-dimensions.md
+XIAO nRF52840 Sense,thickness_pcb,1.6,mm,datasheet,https://files.seeedstudio.com/wiki/XIAO-BLE/Seeed-Studio-XIAO-nRF52840V1.1-KiCad-Project-260105.zip,2026-11-19 17:39,,stackup の層の厚さの和（銅 0.035×4、誘電体 0.48×3、マスク 0.01×2）。部品・USB-C を含む全高は【未確認】
+XIAO nRF52840 Sense,pin_pitch,2.54（列内。2 列の間隔 15.24、各列 7 ピン）,mm,datasheet,https://files.seeedstudio.com/wiki/XIAO-BLE/Seeed-Studio-XIAO-nRF52840V1.1-KiCad-Project-260105.zip,2026-11-19 17:39,,フットプリント XIAO-Add-On のパッド座標。2 列は基板中心から y = ±7.62、ピン 1 は USB-C 側
+XIAO nRF52840 Sense,imu_offset_on_board,基板中心から USB 側へ +1.59、横へ +4.57（上面）,mm,datasheet,https://files.seeedstudio.com/wiki/XIAO-BLE/Seeed-Studio-XIAO-nRF52840V1.1-KiCad-Project-260105.zip,2026-11-19 17:39,,基板データ（U3 LSM6DS3TR-C の at 150.0886 100.4316 180、層 F.Cu）からの読み。基板の端からは USB の反対側の端から 12.07、IMU 側の長辺から 4.32。座標は KiCad（y が下向き）から USB-C 側を +x、画面の上を +y に直した。実物では未確認
+XIAO nRF52840 Sense,imu_axes,"機体 x = -Y_imu、機体 y = +X_imu、機体 z = +Z_imu（link の --axes は -y,x,z）",,datasheet,https://files.seeedstudio.com/wiki/XIAO-BLE/ST_LSM6DS3TR_Datasheet.pdf,2026-11-19 17:40,,データシート p.18（Figure 1）の図と U3 のパッド座標を重ねた読み。USB-C を前に、部品面を上にして置いたとき。実物での確認はまだ。Arduino のライブラリが軸を入れ替えていないかも【未確認】（link.py --axes で確かめる）
+XIAO nRF52840 Sense,mass,4,g,assumed,https://www.bastelgarage.ch/seeed-studio-xiao-nrf52840-sense-1-2516,2026-11-19 17:46,,参考値。販売店（Bastelgarage）の Weight: 4 g。Seeed の公式ページに質量の記載なし。Farnell 0.004 kg、Cirkit Designer 3 g（検索抜粋）。メーカーの値ではない
+AE-DRV8835-S,board_xy,10 x 15,mm,datasheet,https://akizukidenshi.com/goodsaffix/AE-DRV8835-S_20210526.pdf,2026-11-19 17:42,,マニュアル p.1 の外形図の寸法線（横 10、縦 15）。S043 の確認も一致
+AE-DRV8835-S,pin_pitch,2.54（列内。2 列の間隔 7.62、列の長さ 12.7、6 ピン × 2 列）,mm,datasheet,https://akizukidenshi.com/goodsaffix/AE-DRV8835-S_20210526.pdf,2026-11-19 17:42,,外形図の寸法線。ピン穴 0.9 mm。ピンの並びは 03 章
+AE-DRV8835-S,mounting_holes,なし（外形図にピン穴 12 個だけ）,,datasheet,https://akizukidenshi.com/goodsaffix/AE-DRV8835-S_20210526.pdf,2026-11-19 17:42,,外形図に取付穴は描かれていない（描いていない、まで。基板に穴があるかは実物で確かめる）
+AE-DRV8835-S,mass,【未確認】,g,,https://akizukidenshi.com/catalog/g/g109848/,2026-11-19 17:41,,商品ページ・マニュアル p.1〜2 に質量の記載なし
+Cytron Robo Base 2WD,plate_xy,【未確認】,mm,,https://www.switch-science.com/products/10708,2026-11-19 17:36,,上板の外形と取付穴の位置・径。図面は見つけていない（Cytron は 403、スイッチサイエンスは 429）。分かったのは板厚 1.6 mm、取付穴 M3、スペーサー 10・15・20・25・30 mm まで（検索抜粋）。Mini は 109 x 88 mm だが別の製品なので入れない。【2WD（10708）は売り切れ。使わない（発注者の決定 18:20 頃）。車体は Robo Base Mini 2WD に確定。行は消さずに残す: cad.py の WHEEL_PARTS がこの名前を読み、試験もこの行を使うため】
+Cytron Robo Base 2WD,wheel_radius,【未確認】,mm,,,,,参考値 32.5〜33.5（TT 用の車輪の直径 65〜67 mm の半分。Cytron の TT Motor Wheel Kit は 66 mm と読めたがキット付属と同一かは【未確認】）。【2WD は売り切れ。使わない】測ったら measured 欄に入れる。cad.dimension() が measured > datasheet > cad > assumed の順で読む
+Cytron Robo Base 2WD,track,【未確認】,mm,,,,,【2WD は売り切れ。使わない】左右の車輪の接地点の間隔。手がかりなし。80 / 100 mm のどちらにも根拠が無い
+Cytron Robo Base 2WD,axle_to_caster_x,【未確認】,mm,,,,,【2WD は売り切れ。使わない】キャスターは W420 ボールキャスター（同梱品リスト）。位置の寸法は取れず
+Cytron Robo Base 2WD,mass,【未確認】,g,,,,,【2WD は売り切れ。使わない】モーター 2 個と車輪込み。質量の記載なし。TT モーター＋車輪セットの正味 65 g は別の製品の値で、キット付属と同一かは【未確認】
+Cytron Robo Base Mini 2WD,構成,TT モーター 2（15 cm 線）、プラスチックの車輪 2、TT 用ブラケット 2、W420 ボールキャスター 1、板 2 枚、M3 スタンド 25 mm と 10 mm 各 4（長さは Cytron の要約。The Pi Hut は 10 mm と書き食い違う）、M3 ネジ・ナット,,,https://www.switch-science.com/products/10530,2026-11-19 18:20,,"分かっているのは構成だけ。調査 doc/research/2026-11-19-chassis-alternatives.md の検索の要約であって、商品ページの直読ではない（Cytron は 403、スイッチサイエンスは読めず）。10530、税込 1,958 円"
+Cytron Robo Base Mini 2WD,plate_xy,【未確認】,mm,,https://www.switch-science.com/products/10530,,,上の板の外形と取付穴の位置・径。数字はどこにも見つからなかった。届いたら測る。板は厚さ 1.6 mm の基板材（The Pi Hut の要約）。XIAO・ブレッドボード・電池ボックスが載るかも実物で
+Cytron Robo Base Mini 2WD,wheel_radius,【未確認】,mm,,,,,直径も不明（TT 用なら 65〜67 mm の見込みだが Mini の車輪は未確認）。届いたら最初に測り、measured 欄に入れる
+Cytron Robo Base Mini 2WD,track,【未確認】,mm,,,,,左右の車輪の接地点の間隔。2WD より狭い可能性があり、80 mm 以下だとその場旋回がジャイロの範囲（±1000 dps = 17.5 rad/s）を超えるおそれがある（調査の見積もり）。届いたら最初に測る
+Cytron Robo Base Mini 2WD,axle_to_caster_x,【未確認】,mm,,,,,
+Cytron Robo Base Mini 2WD,mass,【未確認】,g,,,,,モーター 2 個と車輪込み
+電池ボックス 単3×4 (秋月 100311),box_xyz,68 x 65 x 19（フタ側の外形 66）,mm,datasheet,https://akizukidenshi.com/goodsaffix/SBH%20341-1AS.PDF,2026-11-19 17:42,,図面 S3411AS-1100: BOTTOM 横 68±1、縦 65±1、側面 19±0.5、COVER 横 66±1。秋月のページも長辺 68、短辺 65、高さ 19（https://akizukidenshi.com/catalog/g/g100311/ 17:41）
+電池ボックス 単3×4 (秋月 100311),lead_length,150 ± 5,mm,datasheet,https://akizukidenshi.com/goodsaffix/SBH%20341-1AS.PDF,2026-11-19 17:42,,"図面の仕様欄 WIRE: UL1007 AWG#26, 150MM±5MM"
+電池ボックス 単3×4 (秋月 100311),mass,【未確認】,g,,https://akizukidenshi.com/goodsaffix/SBH%20341-1AS.PDF,2026-11-19 17:44,,図面・秋月ページに質量なし。仮の値を置くなら 30 g 前後だが根拠は無い
+単3 アルカリ電池,mass_each,23.0,g,datasheet,https://cdn.connectec.uk/Files/Products/Batteries/energizer_batteries/e91_aa_battery_datasheet.pdf,2026-11-19 17:43,,Energizer E91 の Typical Weight（典型値）。4 本で 92 g（約 0.1 kg と合う）。Energizer の公式 URL は 404 だったので転載版
+単3 アルカリ電池,size,直径 13.50〜14.50、長さ 49.50〜50.50,mm,datasheet,https://cdn.connectec.uk/Files/Products/Batteries/energizer_batteries/e91_aa_battery_datasheet.pdf,2026-11-19 17:43,,図面の寸法欄。Physical values are for reference purposes の注意書きあり
+単3 ニッケル水素電池,mass_each,27,g,datasheet,https://www.peak-system.com/produktcd/Tools/PCAN-Diag%20FD/Documentation/Addendum%20Batteries/Panasonic_Cell%20Type%20BK-3MCC.pdf,2026-11-19 17:43,,eneloop BK-3MCC の Approx.27g（チューブ付き）。Panasonic の資料の転載
+単3 ニッケル水素電池,size,14.35 x 50.4,mm,datasheet,https://www.peak-system.com/produktcd/Tools/PCAN-Diag%20FD/Documentation/Addendum%20Batteries/Panasonic_Cell%20Type%20BK-3MCC.pdf,2026-11-19 17:43,,直径 x 高さ（チューブ付き）。他社の転載では 14.5 / 50.5 で、0.1〜0.15 mm の幅がある
+ブレッドボード EIC-801,board_xyz,84 x 54.3 x 9.4,mm,datasheet,https://akizukidenshi.com/goodsaffix/0165-40-4-8010(EIC-801).PDF,2026-11-19 17:43,,図面 0165-40-4-8010。同じ図面の文字は Board:84*54.3*8.5 で、高さが 9.4 と 8.5 で食い違う。販売店は 9.5、秋月のページは 9.4（g100315）。取付穴 2 個 M2.3 x L5.5（裏のねじ穴）の間隔 71.60
+ブレッドボード EIC-801,mass,36,g,assumed,https://www.tinytronics.nl/en/tools-and-mounting/prototyping-supplies/breadboards/eic-premium-breadboard-400-points,2026-11-19 17:47,,参考値。販売店（Tinytronics）の Weight 36 g。メーカーの値ではない
+sim の今の値 (numpy Params),wheel_radius,30,mm,assumed,src/physlearn/sim.py,,,S041 で Params の既定値を MJCF と同じにした。値は MJCF の行と同じ。cad.dimension() は読まない（試験 test_params_table_and_mjcf_agree が Params と MJCF の行の一致を固定）
+sim の今の値 (numpy Params),track,100,mm,assumed,src/physlearn/sim.py,,,S041 で Params の既定値を MJCF と同じにした。値は MJCF の行と同じ。cad.dimension() は読まない（試験 test_params_table_and_mjcf_agree が Params と MJCF の行の一致を固定）
 sim の今の値 (MJCF),wheel_radius,30,mm,assumed,src/physlearn/models/diffdrive.xml,,,
 sim の今の値 (MJCF),track,100,mm,assumed,src/physlearn/models/diffdrive.xml,,,
 sim の今の値 (MJCF),chassis_box_xyz,120 x 90 x 20,mm,assumed,src/physlearn/models/diffdrive.xml,,,

@@ -1,4 +1,4 @@
 file,volume_mm3,mass_g,izz_kg_m2,rel_tol,note
 plate.json,32400,41.796,7.83675e-5,1e-3,手計算 120x90x3。質量は既定材料 1.29 g/cm3、Izz は m(a2+b2)/12
-plate_mount.json,31111.17,38.578,7.4826e-5,1e-3,手計算 3x(120x90-21.6x18.4-4pi1.6^2)。PLA 1.24 g/cm3。Izz は S042 が CAD と手計算 7.4824e-5 で確認
-plate_mount.design.json,31111.17,38.578,7.4826e-5,1e-3,正本の設計 JSON。plate_mount.json（レシピ）と同じ数字になること
+plate_mount.json,31114.95,38.5825,7.4827e-5,1e-3,手計算 3x(120x90-21.555x18.38-4pi1.6^2)=31114.95。PLA 1.24 g/cm3。Izz は手計算 7.48244e-5（S079 が板・窓・穴の面積二次モーメントから）
+plate_mount.design.json,31114.95,38.5825,7.4827e-5,1e-3,正本の設計 JSON。plate_mount.json（レシピ）と同じ数字になること
