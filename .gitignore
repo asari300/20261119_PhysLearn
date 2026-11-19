@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Windows からコピーしたときの付加ストリーム
+*:Zone.Identifier
+
+# 作業用 git worktree の置き場所 (feature ブランチごとに作る)
+.git-worktree/
+
+# セッション記録の生ログ (フックの出力先。伏せ字なしなのでコミットしない)
+log/local/
+
+# Claude Code のローカル状態
+.claude/settings.local.json
