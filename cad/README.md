@@ -1,7 +1,7 @@
 # cad/ 筐体の設計
 
 Cytron Robo Base 2WD の上に載せる取り付け板（またはケース）の設計の置き場。
-道具は SolidCraft を想定する（調査: [doc/research/2026-11-19-solidcraft.md](../doc/research/2026-11-19-solidcraft.md)）。
+道具は SolidCraft を想定する（本家 https://github.com/tangency-labs/solidcraft 、最新の正式版 v0.44.1、2026-11-17 公開、JST 2026-11-19 14:10 に GitHub の API で確認。旧名 `bherbruck/solidcraft` は同じリポジトリ。調査: [doc/research/2026-11-19-solidcraft.md](../doc/research/2026-11-19-solidcraft.md)）。
 ただし下の要件と寸法表は道具に依らない。
 
 ## ファイル
