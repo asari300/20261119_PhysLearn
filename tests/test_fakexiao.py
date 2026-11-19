@@ -1,5 +1,6 @@
 """偽の XIAO に本物の SerialPlant をつなぎ、実機の経路を端から端まで通す。"""
 
+import os
 import threading
 import time
 
@@ -111,3 +112,26 @@ def test_watchdog_clip_and_broken_lines(fake_factory):
 
 
 WATCHDOG_RANGE = (200, 220)  # 200 ms を超えた最初の 10 ms の刻みで止まる
+
+
+@pytest.mark.parametrize(
+    "line, ok",
+    [
+        ("S", True), ("S  ", True), ("S\t", False), ("SS", False),
+        ("M 0.1 -0.2", True), ("M 0.1 -0.2 \r", True), ("M\t0.1 0.2", False), ("M \t0.1\t0.2", True),
+        ("M 1-1", True), ("M .5 5.", True), ("M 0x1 0", True), ("M 1e3 0", True),
+        ("M 1e39 0", False), ("M 1_0 0", False), ("M inf 0", False), ("M 0.1 0.2\t", False), ("M 1e 2", False), ("M 12", False),
+    ],
+)
+def test_line_parsed_like_sketch(line, ok):
+    # スケッチの handleLine（strtof・isfinite・末尾の空白と \r）と同じ行だけ受け付け、ウォッチドッグを延ばす
+    f = FakeXiao(SimPlant(HIDDEN, seed=1))
+    try:
+        f.duty, f.t_ms = (0.5, 0.5), 100
+        f._line(line)
+        assert (f.last_cmd_ms == 100) is ok
+        if line.startswith("S") and ok:
+            assert f.duty == (0.0, 0.0)
+    finally:
+        os.close(f.master)
+        os.close(f.slave)
