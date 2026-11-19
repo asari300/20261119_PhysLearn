@@ -17,19 +17,16 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # 擬似端末 (pty) を実時間の 2 倍速で使う試験があり、遅い共有ランナーでは固まりうる。
-    # 固まったときに延々と待たないための上限。
-    timeout-minutes: 15
+    # 偽の XIAO の試験は仮想の時刻で回る（壁時計に依らない）ので、全体で 1 分ほど。固まったときの上限。
+    timeout-minutes: 10
     env:
       MPLBACKEND: Agg # 描画なし（MuJoCo も描画せずに動く）
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: astral-sh/setup-uv@v10.3.3 # Python は uv が .python-version を読む
       - run: uv sync --locked --extra mujoco --extra viz
-      # tests/test_fakexiao.py と tests/test_real_loop.py は pty を実時間の 2 倍速で使うので、
-      # 遅いランナーでは時間切れで落ちうる。失敗時は、落ちた試験だけをもう 1 回回す（--lf。2 回とも落ちたら本物の失敗）。
-      # どの試験が揺れたかは 1 回目のログと警告に残る。
-      - run: uv run pytest -q || { echo "::warning::pytest が 1 回目に失敗（落ちた試験は上のログ）。落ちた試験だけ回し直す"; uv run pytest -q --lf; }
+      # 失敗した試験のやり直しはしない（不安定さを隠さない。偽の XIAO の試験は壁時計に依らず、負荷でも落ちない）。
+      - run: uv run pytest -q
 
   docs:
     # 章の中のコマンドを shell=True でそのまま実行する（docs_check の冒頭の注意）。第三者の PR の章を走らせると

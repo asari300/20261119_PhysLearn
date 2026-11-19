@@ -1,12 +1,7 @@
-"""偽の XIAO を相手に、実機の経路（link の jog・run・id）だけで S2R → R2S → S2R を 1 周する。"""
-
-import threading
-import time
+"""偽の XIAO を相手に、実機の経路（link の jog・run・id）だけで S2R → R2S → S2R を 1 周する。偽物は仮想の時刻（tests/conftest.py）。"""
 
 import numpy as np
 import pytest
-
-pytest.importorskip("pty")
 
 from physlearn import HIDDEN, sim_log  # noqa: E402
 from physlearn.api import Command  # noqa: E402
@@ -17,22 +12,16 @@ from physlearn.log import as_log  # noqa: E402
 from physlearn.sim import Params, SimPlant  # noqa: E402
 from physlearn.sysid import apply, identify  # noqa: E402
 
-SPEED = 2.0  # tests/test_fakexiao.py と同じ（5 倍では読みが追いつかない）
 TC = 0.15  # tune の 5 × 50 回の sim を試験ごとに回さないため、手で固定
 
 
 @pytest.fixture
-def fake():
-    f = FakeXiao(SimPlant(HIDDEN, seed=1), speed=SPEED)
-    th = threading.Thread(target=f.run, daemon=True)
-    th.start()
-    yield f
-    f.close()
-    th.join(2)
+def fake(fake_factory):
+    return fake_factory()
 
 
 def test_s2r_r2s_s2r_over_serial(fake, capsys):
-    with SerialPlant(fake.port) as p:
+    with SerialPlant(ser=fake.ser) as p:
         _, before = run_loop(p, lambda: design(Params(), TC), 3.0, 2.0)
         rows = sim_log(p)
         est = identify(as_log(rows))
@@ -50,7 +39,7 @@ def test_s2r_r2s_s2r_over_serial(fake, capsys):
 
 
 def test_jog_sign(fake):
-    with SerialPlant(fake.port) as p:
+    with SerialPlant(ser=fake.ser) as p:
         assert jog(p, Command(0.0, 0.4), 0.5) > 0.5  # 右だけ前 → 左回り → gz 正
     wait_stopped(fake)
 
@@ -63,14 +52,9 @@ def test_args_rejected():
         main(["jog", "--port", "/dev/null-none", "--left", "0.9"])
 
 
-def wait_stopped(f, timeout=1.0):
-    # 停止は別スレッドの偽物に非同期で届く。ウォッチドッグ (200 ms) より短い時間で 0 になること
-    # 壁時計でなく偽物の時刻 (f.t_ms) で測る: 遅い環境でも偽物が進んだ分しか数えない。壁時計は固まったときの上限だけ
-    t0, end = f.t_ms, time.monotonic() + timeout * 5
-    while f.duty != (0.0, 0.0):
-        assert f.t_ms - t0 <= WATCHDOG_MS, f"停止が届かない（ウォッチドッグより遅い）: duty {f.duty}"
-        assert time.monotonic() < end, f"偽物が進まない: duty {f.duty}"
-        time.sleep(0.001)
+def wait_stopped(f):
+    # 停止 `S` は write した時点で偽物に届く（仮想の時刻では待ちが要らない）。実機のウォッチドッグ (200 ms) を待たずに 0 になること
+    assert f.duty == (0.0, 0.0), f"停止が届かない: duty {f.duty}"
 
 
 class Boom(Exception):
@@ -87,7 +71,7 @@ def test_exception_sends_stop(fake):
         c.bias = 0.0
         return c
 
-    with pytest.raises(Boom), SerialPlant(fake.port) as p:
+    with pytest.raises(Boom), SerialPlant(ser=fake.ser) as p:
         run_loop(p, ctrl_factory, 3.0, 1.0)
     wait_stopped(fake)
 
@@ -104,7 +88,7 @@ def test_gate_trip_stops(fake):
     old = control.SafetyGate.__init__.__defaults__
     control.SafetyGate.__init__.__defaults__ = (0.6, 10.0, 2.0)  # gz_limit を 2 rad/s に
     try:
-        with pytest.raises(RuntimeError, match="安全ゲート"), SerialPlant(fake.port) as p:
+        with pytest.raises(RuntimeError, match="安全ゲート"), SerialPlant(ser=fake.ser) as p:
             run_loop(p, Wild, 3.0, 1.0)
     finally:
         control.SafetyGate.__init__.__defaults__ = old
@@ -113,7 +97,7 @@ def test_gate_trip_stops(fake):
 
 def test_reset_waits_for_rotation_to_stop(fake, capsys):
     def spin_then_reset(settle):
-        with SerialPlant(fake.port, settle=settle) as p:
+        with SerialPlant(ser=fake.ser, settle=settle) as p:
             p.reset()
             for _ in range(100):  # 1 s 旋回する（gz は約 2.8 rad/s）
                 p.step(Command(-0.5, 0.5), 0.01)
