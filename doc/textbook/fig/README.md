@@ -5,7 +5,7 @@
 
 | 図 | 何が見えるか | 貼る場所の案 |
 | --- | --- | --- |
-| `01-sim-nominal.png` | 公称の sim で同定の実験をしたログ。静止 1 s のあと、旋回の指令 ±0.2・±0.35・±0.5 を各 1 s（間に 0 を 1 s）。上が指令の旋回成分、下が gz。指令の段ごとに gz が一次遅れで追う。 | 04 章（sim）の同定の実験の説明 |
+| `01-sim-nominal.png` | 公称の sim で同定の実験をしたログ。全体で 17 s。静止 1 s のあと、旋回の指令 ±0.2・±0.35・±0.5 を各 1 s（間に 0 を 1 s）、最後に +0.35・−0.35 をもう一度（前後で K が変わったかを `drift` で見るための段。末尾の 2 段）。上が指令の旋回成分、下が gz。指令の段ごとに gz が一次遅れで追う。 | 04 章（sim）の同定の実験の説明 |
 | `02-stand-in-vs-nominal.png` | 代役のログに、公称パラメータのモデルを重ねた図。モデルは代役より大きく速く回り、小さい指令 (0.2) では代役はわずかしか回らない（不感帯）。 | 01 章（S2R と R2S）か 05 章（Real2Sim）の冒頭。「sim と実機の差」 |
 | `03-stand-in-vs-identified.png` | 同じ代役のログに、同定して直したパラメータのモデルを重ねた図。線がほぼ重なる。 | 05 章（Real2Sim）の同定の結果 |
 | `04-step-before-after.png` | 代役での閉ループのステップ応答 (0 → 3 rad/s)。前は公称で決めたゲイン、後は同定したパラメータで決め直したゲイン。前は行き過ぎて目標の少し下に落ち着き、後は目標に揃う。 | 06 章（Sim2Real）か 07 章（1 周）の結果 |
@@ -14,12 +14,12 @@
 
 ## 作り直す
 
-sim・同定・制御の中身が変わったら（S023 で S008 の後の main から作り直した）、下を実行して PNG をコミットし直す。
+sim・同定・制御の中身が変わったら（S077 で S041 の後の main から作り直した。実験は 17 s、寸法は r = 30 mm・b = 0.1 m）、下を実行して PNG をコミットし直す。
 `figures()` は公開された関数（`sim_log`・`identify`・`apply`・`tune`・`design`・`run`）を呼ぶだけなので、コードは直さなくてよい。
 
 ```bash
 uv sync --extra viz --extra mujoco
-uv run python -c "from physlearn.plot import figures; figures('doc/textbook/fig')"   # 01〜05
+uv run python -c "from physlearn.plot import figures; figures('doc/textbook/fig')"   # 01〜05（05 は前と同じ）
 uv run physlearn sim-log mujoco-id.csv --plant mujoco
 uv run python -m physlearn.plot log mujoco-id.csv --out doc/textbook/fig/06-mujoco.png
 rm mujoco-id.csv
