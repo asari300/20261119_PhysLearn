@@ -7,8 +7,8 @@
 """
 
 import argparse
-import math
 import os
+import re
 import select
 import time
 
@@ -22,6 +22,11 @@ DUTY_MAX = 0.6
 WATCHDOG_MS = 200
 PERIOD_MS = 10
 LINE_MAX = 47
+FLT_MAX = 3.4028234663852886e38  # strtof はこれを超えると inf を返し、スケッチの isfinite が拒む
+# strtof が読む数（10 進・16 進。inf・nan は読めても isfinite で拒まれるので最初から外す）
+_NUM = r"[+-]?(?:0[xX](?:[0-9a-fA-F]+\.?[0-9a-fA-F]*|\.[0-9a-fA-F]+)(?:[pP][+-]?\d+)?|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)"
+# handleLine と同じ: strtof は貪欲なので (?>) で "12" を "1" "2" に割らない。数の前は strtof が飛ばす空白類、間は無くてもよい（"1-1"）、後ろは ' ' と '\r' だけ
+_M = re.compile(rf"M [ \t\v\f\r]*((?>{_NUM}))[ \t\v\f\r]*((?>{_NUM}))[ \r]*")
 
 
 class FakeXiao:
@@ -45,15 +50,12 @@ class FakeXiao:
             pass  # スケッチと同じく、相手が読まずに詰まったら捨てる（止まらずウォッチドッグを生かす）
 
     def _line(self, s: str) -> None:
-        if s == "S":
+        if re.fullmatch("S *", s):
             self.duty, self.last_cmd_ms = (0.0, 0.0), self.t_ms
             return
-        v = s[2:].split() if s.startswith("M ") else []
-        try:
-            lr = [float(x) for x in v]
-        except ValueError:
-            lr = []
-        if len(lr) == 2 and all(map(math.isfinite, lr)):
+        m = _M.fullmatch(s)
+        lr = [float.fromhex(x) if "x" in x.lower() else float(x) for x in m.groups()] if m else []
+        if len(lr) == 2 and all(abs(x) <= FLT_MAX for x in lr):
             self.duty = tuple(max(-DUTY_MAX, min(DUTY_MAX, x)) for x in lr)
             self.last_cmd_ms = self.t_ms
         else:
