@@ -119,6 +119,10 @@ def tau_63(rows) -> float:
 
 def main(dxs=None):
     """引数なしなら電池の x を (0, 0.04) で。`python -m physlearn.cad 0 0.04 -0.04` のように並べると、その値で比べる。"""
+    try:
+        import mujoco  # noqa: F401  # spin が使う。無ければトレースバックの代わりに __init__ と同じ文面で止める
+    except ImportError:
+        raise SystemExit("mujoco が入っていない。`uv sync --extra mujoco` で入れる") from None
     dxs = dxs or [float(a) for a in sys.argv[1:]] or (0.0, 0.04)
     m, c, izz = mass_props(DEFAULT_PARTS)
     print(f"既定の車体: 質量 {m:.3f} kg、重心 x {c[0]:+.3f} m、Izz {izz:.3e} kg m^2")

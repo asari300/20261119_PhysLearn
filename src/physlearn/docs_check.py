@@ -11,10 +11,13 @@ CI に入れるなら main への push だけ（`permissions: contents: read`・
        引用符が閉じるまでを 1 つのコマンドとする（複数行の python -c）。
   (ii) ```bash / ```sh のブロックの `uv run` で始まる行がコマンド。直後（間に見出し・空行・「…:」で終わる行だけ）の
        言語指定なしのブロックが期待する出力。言語指定が `text` のブロックは「抜粋」で、行を順に含んでいれば一致とする。
+  (iii) ブロックの直前に `<!-- docs_check: output uv run ... -->`: そのブロック（言語指定なし）を、そのコマンドの出力の「抜粋」として見る
+       （断片だけを貼った章用。同じコマンドは 1 つの章で 1 回だけ走らせる）。
 飛ばす: ブロックの直前に `<!-- docs_check: skip 理由 -->`。印が無くても `--port`・`fakexiao`・`pytest` は飛ばし、
        それが書くファイルを読む後続のコマンドも飛ばす。`--extra mujoco` は `--mujoco` のときだけ走らせる。
 比較: 数字は期待の最後の桁の半分 + 1e-9 以内で一致（小数点も指数も無い整数は厳密に一致）、数字以外は完全一致、
      `...` を含む期待の行は飛ばす、空行は無視。
+`--mujoco` なしのとき、`ModuleNotFoundError: No module named 'mujoco'`・「mujoco が入っていない」で落ちたコマンドと `--plant mujoco`・`--real mujoco` は「飛ばした（mujoco なし）」。
 --strict（既定は無効。正しく書いた章でも「差」が増えうる）: コマンドが 0 以外の終了コードなのに期待が例外・usage を見せていなければ「差」、
      FileNotFoundError は飛ばしたコマンドが作るはずのファイルの名前が stderr にあるときだけ「飛ばした」、`uv run` 以外は飛ばす。
 """
@@ -37,6 +40,7 @@ TARGETS = [*(sorted(ROOT.glob(f"doc/textbook/{n}-*.md"))[0] for n in
            ROOT / "doc/textbook/solutions.md", ROOT / "README.md", ROOT / "doc/bringup.md"]
 NUM = re.compile(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 SKIP_MARK = re.compile(r"<!--\s*docs_check:\s*skip\b(.*?)-->")
+OUT_MARK = re.compile(r"<!--\s*docs_check:\s*output\s+(uv run\b.*?)\s*-->")
 
 
 @dataclass
@@ -82,12 +86,15 @@ def extract(text):
         while k >= 0 and not lines[k].strip():
             k -= 1
         s = SKIP_MARK.search(lines[k]) if k >= 0 else None
-        blocks.append((i, m.group(1), lines[i + 1:j], j, s and (s.group(1).strip() or "理由なし")))
+        o = OUT_MARK.search(lines[k]) if k >= 0 else None
+        blocks.append((i, m.group(1), lines[i + 1:j], j, s and (s.group(1).strip() or "理由なし"), o and o.group(1)))
         i = j + 1
     units = []
-    for n, (start, lang, body, end, skip) in enumerate(blocks):
+    for n, (start, lang, body, end, skip, out_cmd) in enumerate(blocks):
         first = next((l for l in body if l.strip()), "")
-        if lang in ("", "text") and first.startswith("$ "):  # (i)
+        if out_cmd and lang == "":  # (iii)
+            units.append(Unit(start + 2, [out_cmd], body, True, skip))
+        elif lang in ("", "text") and first.startswith("$ "):  # (i)
             cmds = [(a, c[2:] if c.startswith("$ ") else None, j) for a, c, j in _commands(body)]
             starts = [a for a, c, _ in cmds if c is not None]
             for a, c, j in cmds:
@@ -101,10 +108,10 @@ def extract(text):
                 continue
             exp, excerpt = None, False
             if n + 1 < len(blocks):
-                s2, l2, b2, _, _ = blocks[n + 1]
+                s2, l2, b2, _, _, o2 = blocks[n + 1]
                 between = lines[end + 1:s2]
                 f2 = next((l for l in b2 if l.strip()), "")
-                if l2 in ("", "text") and not f2.startswith("$ ") and all(
+                if l2 in ("", "text") and not o2 and not f2.startswith("$ ") and all(
                         not l.strip() or l.startswith("#") or l.rstrip().endswith((":", "：")) for l in between):
                     exp, excerpt = b2, l2 == "text"
             units.append(Unit(start + 2 + cmds[0][0], [c for _, c in cmds], exp, excerpt, skip))
@@ -154,6 +161,8 @@ def auto_skip(cmd, mujoco):
         return "試験は回さない"
     if "--extra mujoco" in cmd and not mujoco:
         return "mujoco なし"
+    if not mujoco and re.search(r"--(plant|real)[ =]mujoco\b", cmd):
+        return "mujoco なし"
 
 
 def unsafe(cmd):
@@ -168,7 +177,7 @@ def unsafe(cmd):
 
 def run_file(path, mujoco, strict=False):
     """[(行, 先頭行の文字列, 結果, 詳細)] を返す。"""
-    rows, missing = [], set()  # missing: 飛ばしたコマンドが書くはずのファイル
+    rows, missing, cache = [], set(), {}  # cache: 同じコマンドは 1 章で 1 回だけ（(iii) の断片用）。missing: 飛ばしたコマンドが書くはずのファイル
     env = {**os.environ, "PYTHONHASHSEED": "0"}
     with tempfile.TemporaryDirectory() as d:
         for u in extract(Path(path).read_text()):
@@ -182,7 +191,13 @@ def run_file(path, mujoco, strict=False):
                     continue
                 if cmd.startswith("uv run"):
                     cmd = f"uv run --quiet --project {shlex.quote(str(ROOT))}" + cmd[len("uv run"):]
-                p = subprocess.run(cmd, shell=True, cwd=d, env=env, text=True, capture_output=True, timeout=900)
+                if cmd in cache:
+                    p = cache[cmd]
+                else:
+                    p = cache[cmd] = subprocess.run(cmd, shell=True, cwd=d, env=env, text=True, capture_output=True, timeout=900)
+                if not mujoco and ("No module named 'mujoco'" in p.stderr or "mujoco が入っていない" in p.stderr):
+                    why = why or "mujoco なし"
+                    continue
                 # 章の中に入力ファイルを作る手順が無い。--strict では飛ばしたコマンドの出力のファイル名が出ているときだけ
                 if p.returncode and "FileNotFoundError" in p.stderr and (not strict or any(m in p.stderr for m in missing)):
                     why = why or "入力ファイルが無い"
