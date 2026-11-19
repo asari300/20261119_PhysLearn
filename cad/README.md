@@ -1,7 +1,7 @@
 # cad/ 筐体の設計
 
 Cytron Robo Base 2WD の上に載せる取り付け板（またはケース）の設計の置き場。
-道具は SolidCraft を想定する（本家 https://github.com/tangency-labs/solidcraft 、最新の正式版 v0.44.1、2026-11-17 公開、JST 2026-11-19 14:10 に GitHub の API で確認。旧名 `bherbruck/solidcraft` は同じリポジトリ。調査: [doc/research/2026-11-19-solidcraft.md](../doc/research/2026-11-19-solidcraft.md)）。
+道具は SolidCraft。CLI は動かして確かめた（下の「走らせ方」）。本家 https://github.com/tangency-labs/solidcraft 、最新の正式版 v0.44.1、2026-11-17 公開、JST 2026-11-19 14:10 に GitHub の API で確認。旧名 `bherbruck/solidcraft` は同じリポジトリ。調査: [doc/research/2026-11-19-solidcraft.md](../doc/research/2026-11-19-solidcraft.md)。
 ただし下の要件と寸法表は道具に依らない。
 
 ## ファイル
@@ -9,11 +9,63 @@ Cytron Robo Base 2WD の上に載せる取り付け板（またはケース）�
 | ファイル | 中身 |
 | --- | --- |
 | `dimensions.csv` | 部品の外形・質量の表。**寸法の唯一の置き場**。各値に出どころ（`datasheet` / `measured` / `cad` / `assumed`）と URL・取得時刻。届いたら `measured` 欄に測った値を書く |
-| `README.md` | この文書（要件） |
+| `plate.json` | 板だけ（120 × 90 × 3 mm、穴なし）。SolidCraft v0.44.1 の CLI で STEP が書き出せることを確かめた最小の例 |
+| `plate_mount.json` | 取り付け板。パラメーター付き。XIAO の窓（datasheet の外形 + 逃げ）と、Robo Base 取付穴の**仮の値**の 4 穴。材料 PLA（密度は SolidCraft の表の値） |
+| `plate_mass.json` | 質量特性を読む 1 コマンド（`assembly.mass_properties`）。`--in` で設計に重ねて使う |
+| `README.md` | この文書（要件と走らせ方） |
 
-コミットするもの: 寸法表、SolidCraft の設計 `.sc` とスクリプト `.json`（テキストなら）。
-コミットしないもの: 書き出した STEP / STL / 3MF（設計から作り直せる）。必要なら版を決めてリリースに添付する。
-`.sc` がバイナリで大きい（目安 1 MB 超）なら、コミットせずに置き場を決める。`.sc` の中身の形式は【未確認】。
+コミットするもの: 寸法表、スクリプト `.json`（テキスト。設計の正本）。
+コミットしないもの: 書き出した STEP / STL / 3MF / URDF とそのメッシュ（`.json` から作り直せる。`plate_mount.step` は 29 KB と小さいが、方針は変えない）、`.sc`。
+`.sc`（v0.44.1 が書いたものは zip で、`plate_mount` は 11.8 KB）はバイナリなので入れない。`.json` から `--save` で作り直せる。
+
+## 走らせ方（v0.44.1 の Linux 版 CLI で確かめた。JST 2026-11-19 17:36〜17:43、WSL2・GPU なし）
+
+CLI は GitHub Releases の `solidcraft-0.44.1-linux-x86_64.tar.gz`（SHA-256 `164097743f6ff11c1eeb90a4313964728955e297689052053e4e5d8d20a64229`、公式の `SHA256SUMS.txt` と API の digest に一致）を展開した `bin/solidcraft-cli`（約 203 MB の 1 本）。FUSE も GPU も要らない。以下の `solidcraft-cli` はそのパス。
+
+```bash
+solidcraft-cli run cad/plate.json --out plate.step                       # 板だけ。体積 32400 mm3
+solidcraft-cli run cad/plate_mount.json --save plate_mount.sc --out plate_mount.step
+solidcraft-cli eval cad/plate_mount.json                                 # 体積・質量・重心・bbox を JSON で
+solidcraft-cli run cad/plate_mass.json --in plate_mount.sc --results --json-out mass.json   # 質量・重心・慣性
+```
+
+CLI は 0.1 秒で終わる。設定は書かない。STEP を読むと読み込みのキャッシュを `$XDG_DATA_HOME/solidcraft/imports/` に作る。
+**効かなかったもの**: `snapshot` と `gpu` は、GPU の無いこの環境（`/dev/dri` の権限なし）で 90 秒以上返らず、画像は出なかった。`render` も同じ系統で、試していない。形は `eval` の数値と、STEP の中身で確かめる。
+
+### パラメーターを変える（パラメトリック設計）
+
+`plate_mount.json` の先頭のパラメーターを変えて再計算できる。仮の値は名前が `TBD_` で始まる。Robo Base が届いて測ったら、`TBD_robo_hole_dx` `TBD_robo_hole_dy` `TBD_robo_hole_d` の 3 つの数字を直す。
+
+```bash
+echo '{"commands":[{"command":"parameters.change","params":{"changes":{"TBD_robo_hole_dx":"94","TBD_robo_hole_d":"4"}}}]}' > change.json
+solidcraft-cli run change.json --in plate_mount.sc --out changed.step
+```
+
+確かめた結果: 穴の中心が x = ±50 → ±47、径 3.2 → 4.0 になり、体積は 31111.17 → 31056.88 mm3（手計算 31056.9）。
+
+### 板の設計（`plate_mount.json`）の根拠
+
+| 要素 | 値 | 出どころ |
+| --- | --- | --- |
+| XIAO の窓 | (21 + 2 × 0.3) × (17.8 + 2 × 0.3) mm、板の中心 | 外形は `datasheet`。逃げ 0.3 mm は設計者の仮定（`xiao_clearance`）。XIAO には取付穴が無いので、窓で位置を決める枠にした。基板の厚み・押さえる方法は【未確認】で、窓は貫通 |
+| 4 つの穴 | 間隔 100 × 60 mm、径 3.2 mm | **仮の値（`TBD_`）**。Robo Base の取付穴は【未確認】。**届く前に実物の板に穴を開けない** |
+| 板 | 120 × 90 × 3 mm | `assumed`（MJCF の車体に合わせた） |
+| 材料 | PLA 1.24 g/cm3 | SolidCraft の材料表の値。板を何で作るかは決めていない |
+
+AE-DRV8835-S・電池ボックス・ブレッドボードの置き場は、寸法が【未確認】なので、まだ描いていない。
+
+### 測った値と `physlearn.cad` の比較
+
+| | SolidCraft（`assembly.mass_properties`） | 手計算（板 − 窓 − 4 穴） | `cad.mass_props`（同じ質量の直方体 120 × 90 × 3） |
+| --- | --- | --- | --- |
+| 質量 | 38.578 g | 38.578 g | （入力） |
+| 重心 | (0, 0, 1.5) mm | 同じ | 同じ |
+| Izz | 7.4826e-5 kg m2 | 7.4824e-5 | 7.2333e-5（CAD の 0.967 倍） |
+
+質量は体積と一致、Izz は手計算と 4 桁で一致（差 0.004 %、円のメッシュ化の差と思われる【未確認】）。
+窓と穴の分だけ材料が外側に寄るので、直方体の近似は Izz を 3.4 % 低く見積もる。板が車体の慣性に占める割合は小さいが、**CAD → sim は、直方体の近似の代わりに CAD の出力を渡せる**。
+`physlearn.cad.mass_props` は Izz を直接持つ部品を受けないので、今は比べるだけにした（`src/` は触っていない）。URDF の書き出し（`file.export_urdf`）も動き、同じ板の `<inertial>` は mass 0.0385790、izz 7.48278e-5（STL のメッシュから積分した値で、上の厳密な値と 0.007 % 違う）。
+
 
 ## 要件
 
@@ -37,4 +89,4 @@ sim の車輪半径とトレッドは numpy（`sim.Params`: 16 mm・80 mm）と 
 ## CAD → sim
 
 `python -m physlearn.cad` が、部品（直方体・球・円柱）の足し合わせと平行軸の定理で質量・重心・ヨーの慣性 Izz を出し、`diffdrive.xml` を書き換えて MuJoCo で走らせる。
-SolidCraft の URDF 書き出しには各リンクの質量・重心・重心回りの慣性テンソルが入るとされる（【未実行】）。その値は `mass_props` に 1 つの部品として渡せる（Izz を直接持つ部品の形は今は無い。要るときに足す）。
+SolidCraft の質量特性（`assembly.mass_properties`）と URDF の `<inertial>`（質量・重心・慣性テンソル）は、板で動くことを確かめた（上の「測った値と比較」）。その値は `mass_props` に 1 つの部品として渡したいが、Izz を直接持つ部品の形は今は無い。要るときに足す。
