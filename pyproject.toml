@@ -1,17 +1,30 @@
 [project]
-name = "20261119-physlearn"
+name = "physlearn"
 version = "0.1.0"
-description = "Add your description here"
+description = "Physical AI (Sim2Real & Real2Sim) を XIAO + IMU で学ぶ教材とコード"
 readme = "README.md"
 authors = [
     { name = "asari300" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "numpy>=2.5.5",
+    "pyserial>=3.5",
+]
 
 [project.scripts]
-20261119-physlearn = "20261119_physlearn:main"
+physlearn = "physlearn:main"
+
+[project.optional-dependencies]
+mujoco = [
+    "mujoco>=4.0.1",
+]
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
