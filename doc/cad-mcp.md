@@ -85,7 +85,7 @@ solidcraft-cli --version      # solidcraft-cli 0.44.1
 
 この PC の実際の置き場所は `~/.local/opt/solidcraft-0.44.1/`（統括が展開済みのものをコピーした）と `~/.local/bin/solidcraft-cli`（symlink）。root・FUSE・GPU は要らない。`ldd` で `not found` は 0 件。
 API の digest を JST 17:48 に取り直したら、上の値と同じだった（`https://api.github.com/repos/tangency-labs/solidcraft/releases/tags/v0.44.1`）。
-**効かない物**: `snapshot` と `gpu` は GPU の無い WSL2 で返らなかった（S042）。`mcp` の `screenshot` も同じ系統のはず【未確認】。形は `measure` の数字で確かめる。
+**効かない物**: `snapshot` と `gpu` は GPU の無い WSL2 で返らなかった（S042）。`mcp` の `screenshot` も同じで、75 秒待っても返らなかった（S094）。形は `measure` の数字で確かめる。
 
 Windows 側の GUI（発注者が自分で用意する。公式の README の Download 節、[gh]`README.md`）:
 
@@ -122,50 +122,121 @@ open  → isError: true
 
 `--allow-path` を付けると、同じ操作が通った。`open` → `measure`（体積と重心）→ `execute parameters.change {TBD_robo_hole_d: 4}`（`recomputed: 2, errors: []`）→ `measure` → `save` が全部成功した。`--allow-any-path` は付けていない（許可は `cad/` だけ）。正本が設計 JSON なので、Claude は MCP の `open cad/plate_mount.design.json` → `inspect_design` / `measure` / `set_parameter` / `execute` → `save` で、そのまま正本を読み書きできる。コマンド列のレシピ（`cad/*.json`）は MCP の `open` が開けないので、Claude がファイルとして編集するか、`execute` / `batch` に同じコマンドを渡して作らせる。窓なしの MCP を `--in cad/plate_mount.json` で起動すると、コマンド列から始められると公式の文書にある【未実行】。Claude が設計 JSON を直すと、レシピとずれる。ずれは `cad/expected.csv` の両方の行が同じ数字になるかで CI が見つける。
 
-### 未解決の点: 許可された folder は main の `cad/` で、worktree の `cad/` ではない
+### 試した結果（旧「未解決の点」）: worktree の `cad/` は、登録のままでは拒否される（推論は当たっていた）
 
-許可は、登録時に書いた**絶対パス**（main のチェックアウトの `cad/`）。ところが `CLAUDE.md` は「main の作業ツリーを直接編集しない。作業は `.git-worktree/<topic>/` の feature ブランチで」と決めている。worktree の `cad/`（`<リポジトリの根>/.git-worktree/<topic>/cad`）は許可の外で、MCP の `open` が拒否される見込み。**これはパスの比較からの推論で、worktree では試していない**（S055 の注意 N-1）。
+JST 2026-11-19 19:35〜19:50、S094 が `solidcraft-cli mcp`（v0.44.1）を自分で立て、標準入出力に JSON-RPC を送って試した（スクリプトは scratchpad。リポジトリの `cad/` には何も書いていない）。登録と同じ引数は `--allow-path <リポジトリの根>/cad`。`--headless` を付けない形でも、SolidCraft のアプリが見つからないので窓なし（`mode: headless`）で動き、応答に `Note: this is a headless session because the SolidCraft app was not found; …` が付く。以下の応答のパスは `<リポジトリの根>`・`<WT>`（作業用 worktree）・`<SCR>`（scratchpad）に置き換えた。
 
-そのため、今の登録のまま MCP で設計すると、`open` する先は main の `cad/` になり、`save` は main のチェックアウトの作業ツリーを書き換える。決まりと食い違う。案（**設定は変えていない。決めるのは発注者**）:
+**登録と同じ引数（`--allow-path <リポジトリの根>/cad`）**
 
-1. **worktree ごとに `--allow-path` を足して登録し直す。** 設計の作業を始めるとき（`/start-session` の後）に `claude mcp remove solidcraft` → `claude mcp add solidcraft -- solidcraft-cli mcp --allow-path <worktree>/cad`。決まりは守れるが、worktree を切るたびに手間が増え、登録し直した後は Claude Code の再起動が要る【未確認】。
-2. **`--allow-path` を `.git-worktree` までに広げる。** `--allow-path <リポジトリの根>/.git-worktree` の 1 回で、どの worktree の `cad/` も開ける（`--allow-path` が配下を許可するかは公式の文書で確かめていない【未確認】）。許可は `.git-worktree` の下の全ファイルに広がる（`cad/` 以外も読み書きできる）。`--allow-any-path` よりは狭い。main の `cad/` を許可に残すかどうかも決める。
-3. （参考）設計の作業だけは main の `cad/` で行う例外を決まりに書く。ただし main に未コミットの変更が出るので、`CLAUDE.md` の「main に未コミットの変更があったら止める」と衝突する。おすすめしない。
-
-どれにするかは、MCP を実際に使うセッションで 1 回試してから決めるのがよい。
-
-### MCP のツール一覧（実際に取った）
-
-`solidcraft-cli mcp --headless` を標準入出力で起動し、`initialize` → `tools/list` を送った（JST 17:50。設定は変えていない）。サーバーは `solidcraft 0.44.1`、protocolVersion `2025-06-18`。ツールは **23 個**（自分でも `solidcraft-cli mcp --headless` に `tools/list` を送って数え直した。S055 の監査と同じ）。`annotations` の `readOnlyHint` で分けた:
-
-| 読み取りだけ（`readOnlyHint: true`、10 個） | 説明（原文の要約） |
+| 呼び出し | 結果 |
 | --- | --- |
-| `version` | 動いている版とモード |
-| `list_commands` | コマンドの一覧（id・1 行の引数の説明） |
-| `describe_command` | 1 コマンドの引数の説明 |
+| `open <リポジトリの根>/cad/plate_mount.design.json` | 通った。`{"errors": 0, "features": 2, "name": "plate_mount.design", …}` |
+| `open <WT>/cad/plate_mount.design.json` | **拒否された**（`isError: true`） |
+
+拒否の原文: `<WT>/cad/plate_mount.design.json: design container: <WT>/cad/plate_mount.design.json: outside the folders this agent may use (<SCR>/xdg/data/solidcraft/recovery, /tmp/solidcraft-mcp-…, <リポジトリの根>/cad, <リポジトリの根>/cad); allow another folder with `--allow-path DIR``。起動時の標準エラーは `files limited to …recovery, /tmp/solidcraft-mcp-…, <リポジトリの根>/cad and the folders of designs opened or saved here`。
+
+**理由は 2 つ重なっている**（公式の文書 [gh]`docs/mcp.md` の "Which files the agent can reach"、JST 19:41 に v0.44.1 の原文を取り直して手元の写しと一致を確認）。(1) `--allow-path` は絶対パスで、worktree の `cad/` はその外。(2) 開いた設計の folder が自動で許可に入る決まりもあるが、"not in a hidden folder" の条件があり、`.git-worktree` は先頭が `.` の隠し folder なので入らない。実測: `--in <WT>/cad/plate_mount.design.json` で立てると、設計は読み込まれる（`inspect_design` は成功）が、標準エラーに `the design's folder is left out because it is inside a hidden folder; add it with --allow-path if you mean it` と出て、`save` は拒否された。`/tmp` の下の隠れていない folder の設計を `--in` で立てた場合は、許可なしで同じ folder に `open` できた。
+
+**案を 1 つずつ試した**
+
+| 案 | 登録の引数 | 試した結果 | 開けるようになる範囲 |
+| --- | --- | --- | --- |
+| 現状 | `--allow-path <リポジトリの根>/cad` | main の `cad/` は開く。**worktree は拒否** | main の `cad/` だけ |
+| 1 worktree ごとに足す | `--allow-path <リポジトリの根>/cad --allow-path <WT>/cad` | **動いた**。両方の `open` が通り、別の worktree（S091 の `cad/`）は拒否された | 足した `cad/` だけ |
+| 2 `.git-worktree` まで広げる | `--allow-path <リポジトリの根>/.git-worktree` | **動いた**。この worktree と別の worktree（S091）の `cad/` の `open` が通った。許可は配下に及ぶ。ただし main の `cad/` は**拒否された**（main も要るなら `--allow-path <リポジトリの根>/cad` を足す） | `.git-worktree` の下の全ファイル（隠しファイルも） |
+| 3 リポジトリの根まで広げる | `--allow-path <リポジトリの根>` | **動いた**。main の `cad/` も worktree の `cad/` も通った。標準エラーは `files limited to …, <リポジトリの根>` | リポジトリの根の下の全部（`.git`・`.venv`・`log/local/` の生ログ・他の worktree を含む） |
+| （参考）main を例外にする | 現状のまま | main の `cad/` は開けて、`save` は main の作業ツリーを書き換える（書けることは S051 と、上の scratchpad の試しで確認） | main の `cad/` |
+
+`--allow-path` に glob（`<リポジトリの根>/.git-worktree/*/cad`）を渡すと、`allow-path … ignored: it doesn't exist` と出て無視された。**glob は使えない**。
+
+**許可の中で Claude が書ける範囲（ここが危なさの中身）** 許可された folder の中では、`save` が**既存のファイルを拡張子に関係なく上書きできた**。scratchpad の許可 folder で、`notes.txt`・`run.sh` に設計を `save` したら、中身が設計のコンテナ（zip）に置き換わった（元の中身は `<名前>.bak` に残った）。新しい `newfile.py`・`Makefile`・`.hidden.json` も作れた。`export` は stl・obj・step・3mf・glb・urdf・sc の拡張子だけ（`run.sh` は `unsupported format` で拒否）。上書きするとき、元のファイルは `<名前>.bak` として隣に残る。**`*.bak` は `.gitignore` に無いので、`cad/` の設計を `save` で上書きすると `git status` に `cad/plate_mount.design.json.bak` が出る**（コミットしないよう注意）。つまり案 2・3 は「Claude が worktree や根の下の任意のファイル（`src/*.py` など）を設計のバイト列で壊せる」範囲を作る。git で戻せるが、未コミットの変更は `.bak` にしか残らない。
+
+| 案 | Claude が書ける範囲 | 「main を直接編集しない」との折り合い |
+| --- | --- | --- |
+| 1 | その worktree の `cad/` だけ（最も狭い） | 合う。ただし worktree を切るたびに `claude mcp remove`・`add` と Claude Code の再起動が要る【再起動が要ることは未確認】 |
+| 2 | `.git-worktree` の下のすべて（他セッションの worktree も） | 合う（main の `cad/` は許可の外なので、MCP は main を書けない）。登録は 1 回 |
+| 3 | リポジトリの根の下のすべて（main の作業ツリーと `.git` を含む） | **合わない**（MCP が main の作業ツリーを書ける）。広すぎる |
+| main を例外 | main の `cad/` | 決まりを変える必要があり、`CLAUDE.md` の「main に未コミットの変更があったら止める」と衝突する |
+
+### symlink・相対パス・`..`・hard link で許可の外に出られるか: symlink・`..`・相対パスは出られなかった。hard link は出られる
+
+scratchpad に許可 folder `allowed/` と外の `outside/` を作って `--allow-path <SCR>/sym/allowed` で試した。
+
+| 試し | 結果 |
+| --- | --- |
+| `allowed/` の中の symlink（相対・絶対）が、外のファイルを指す | **拒否**（`outside the folders this agent may use`） |
+| `allowed/` の中の symlink が、外の folder を指す（`link_dir/secret.design.json`） | **拒否** |
+| `allowed/../outside/…` | **拒否** |
+| 相対パス（サーバーの作業 folder が許可の中。`../outside/…`） | **拒否**。相対パスは絶対に直して比べる |
+| `allowed/` の中の **hard link**（外のファイルと同じ実体） | **開けた**（文書の注意どおり。hard link は見分けられない）。`save` は新しいファイルに置き換えて書くので、外のファイルは変わらなかった（隣に `.bak` として hard link が残る） |
+
+hard link は `ln` で人が作るもの。許可 folder に hard link を置かなければ問題にならない（`execute` が hard link を作れるかは試していない【未試】）。
+
+`execute`・`batch` 経由の書き込みも同じ検査を通った。`file.save_as`・`file.export_step`・`file.export_urdf`（メッシュの `y-base.stl` の書き出し先で拒否）・`file.save_mesh` は、許可の外では拒否され、中では書けた。`batch` の引数は `steps` ではなく `commands`。`doc.open`・`file.insert_step`・`compare_picture` の `reference` も、許可の外は拒否された。`file.send_to_slicer`・`sketch.text` のフォント指定など、ほかのファイルを触る命令は試していない【未試】。
+
+### `--require-allow-path`・`--allow-any-path` の意味
+
+- `--allow-path DIR`: DIR を丸ごと許可する（配下の隠しファイルも）。存在しない DIR は `allow-path … ignored: it doesn't exist` を出して**無視され、サーバーは起動する**（実測。終了コード 0）。
+- `--require-allow-path`: **すべての** `--allow-path` が使えないとき、起動を拒否する（実測: `--allow-path /nonexistent` と組み合わせると `error: mcp: every --allow-path folder is missing or unusable` で終了コード 1）。`--allow-path` を 1 つも付けずに `--require-allow-path` だけでは、拒否されず起動した（終了コード 0）。つまり「`--allow-path` の 1 つ目が打ち間違いで、許可なしで黙って起動する」ことを防ぐ用途。登録に付けるなら `--allow-path` の綴りが確実なときだけでよい。
+- `--allow-any-path`: 許可の限りを外す（文書の原文は "no limit (the behaviour before this option existed)"）。**使わない**。試していない。
+
+### MCP のツール一覧（実際に取った。S094 が 10 個の「読み取りだけ」を実際に呼んで確かめた）
+
+`solidcraft-cli mcp --headless` を標準入出力で起動し、`initialize` → `tools/list` を送った（JST 17:50 に S051、19:3x に S094 が取り直し）。サーバーは `solidcraft 0.44.1`、protocolVersion `2025-06-18`。ツールは **23 個**。`annotations` の `readOnlyHint` で分けた:
+
+| 読み取りだけ（`readOnlyHint: true`、10 個。**実際に呼んでも、scratchpad の写しのファイルの一覧・大きさ・更新時刻は変わらなかった**） | 説明（原文の要約）と試した呼び出し |
+| --- | --- |
+| `version` | 動いている版とモード。`{"mode": "headless", "version": "0.44.1", …}` |
+| `list_commands` | コマンドの一覧 |
+| `describe_command` | 1 コマンドの引数の説明（`id: solid.extrude`） |
 | `inspect_design` | パラメーター・タイムライン・ボディ・スケッチの全体 |
-| `measure` | 体積・面積・重心・外形・面/辺/頂点の数 |
-| `body_topology` | 辺と面の一覧（中点・長さ・法線） |
-| `crash_reports` | 手元の crash レポート |
-| `running` | アプリが今動かしている要求（アプリにつないだとき） |
-| `pending` | 時間のかかっている要求の結果 |
-| `skill_reference` | 同梱の設計の手引きを読む |
+| `measure` | 体積・面積・重心・外形（`summary: true` も） |
+| `body_topology` | 辺と面の一覧（`body: plate`） |
+| `crash_reports` | 手元の crash レポート（一覧は `reports: []`） |
+| `running` | アプリが今動かしている要求（窓なしでは `running: []`） |
+| `pending` | 時間のかかっている要求の結果（窓なしでは `pending: null`） |
+| `skill_reference` | 同梱の設計の手引きを読む。`file` に `../…`・絶対パス・scratchpad の設計を渡すと `Unknown file … Available files: SKILL.md, reference.md` で拒否（任意のファイルは読めない）。`skill` に `/etc` も拒否 |
+
+確かめ方: `open` の後、10 個を 1 つずつ呼び、呼ぶたびに scratchpad の写しの folder・XDG の folder・サーバーの scratch folder（`/tmp/solidcraft-mcp-*`）の全ファイルの（相対パス、大きさ、更新時刻）を比べた。**どの呼び出しの前後でも差は 0 件**。呼んだ後の設計ファイルの SHA-256 も、リポジトリの `cad/plate_mount.design.json` と一致した。`open` 自体もファイルを書かなかった（ロックファイルも出ない）。`check_parameters`（試すだけで戻る）も差は 0 件だったが、`readOnlyHint: false` なので分類は変えない。
+
+**10 個はすべて「読み取りだけ」のままでよい。外すものは無い。** ただし「ファイルを書かない」ことであって、「機密を読めない」ことではない: `inspect_design`・`measure` などは `open` した設計の中身を返す。窓なしの形での試しで、アプリにつないだ形（`--connect`、デスクトップ版）での `running`・`pending`・`crash_reports` の動きは【未確認】。
 
 | 設計を変える・ファイルを書く・読む（`readOnlyHint: false`、13 個） | 注意 |
 | --- | --- |
-| `execute`、`batch` | 任意のコマンドを実行。`destructive: true` |
-| `set_parameter`、`check_parameters` | パラメーターの変更（`check_parameters` は試すだけで戻る）。`destructive: false` |
+| `execute`、`batch` | 任意のコマンドを実行。`destructive: true`。ファイルを書く命令（`file.save_as` など）も通るが、許可 folder の外は拒否される（実測） |
+| `set_parameter`、`check_parameters` | パラメーターの変更（`check_parameters` は試すだけで戻る）。`destructive: false`。ファイルは書かない |
 | `undo`、`redo`、`cancel` | 設計の履歴 |
-| `new_design`、`open` | 今の設計を捨てる（`destructive: true`） |
-| `save`、`export` | ファイルを書く。許可された folder の中だけ（`destructive: true`） |
-| `screenshot`、`compare_picture` | 画像を作る。GPU の無い PC では返らない可能性が高い。ファイルも書ける |
+| `new_design`、`open` | 今の設計を捨てる（`destructive: true`）。`open` は許可の外を拒否する |
+| `save`、`export` | ファイルを書く。許可された folder の中だけ。**中では既存ファイルを拡張子に関係なく上書きする**（`.bak` を残す） |
+| `screenshot`、`compare_picture` | 画像を作る。この PC（GPU なし）では `screenshot` が **75 秒待っても返らず**、サーバーが詰まって次の呼び出しにも返らなくなった（標準エラーは `libEGL warning: failed to open /dev/dri/…: Permission denied`）。`path` が許可の外なら先に拒否される。`compare_picture` の `reference` が許可の外なら先に拒否される |
 
 ### 許可リストの提案（決めるのは発注者。私は設定を変えていない）
 
-- **毎回確認なしに許可してよい**（上の表の読み取りだけの 10 個）: `mcp__solidcraft__version`、`list_commands`、`describe_command`、`inspect_design`、`measure`、`body_topology`、`skill_reference`。`crash_reports` `running` `pending` は使う場面が少ないので外してよい。
-- **毎回確認にする**: `execute`、`batch`、`set_parameter`、`new_design`、`open`、`save`、`export`、`screenshot`、`compare_picture`。設計を変えるか、ファイルを書く。`execute` は任意のコマンドを通すので、ファイルを書くコマンドも通る。
-- `check_parameters` `undo` `redo` `cancel` は、設計の内容を残さないので許可でもよいが、最初は確認にして様子を見る。
-- 許可リストの書き方は `update-config` の手順（`.claude/settings.json`）。許可リストの変更も発注者が決める。
+- **毎回確認なしに許可してよい**（読み取りだけの 10 個、実際に呼んで確かめた）: `mcp__solidcraft__version`、`mcp__solidcraft__list_commands`、`mcp__solidcraft__describe_command`、`mcp__solidcraft__inspect_design`、`mcp__solidcraft__measure`、`mcp__solidcraft__body_topology`、`mcp__solidcraft__skill_reference`、`mcp__solidcraft__crash_reports`、`mcp__solidcraft__running`、`mcp__solidcraft__pending`。使う場面が少ない `crash_reports`・`running`・`pending` は外してもよい（7 個にしても困らない）。
+- **毎回確認にする**: `execute`、`batch`、`set_parameter`、`new_design`、`open`、`save`、`export`、`screenshot`、`compare_picture`。`screenshot` は GPU の無いこの PC で詰まるので、許可しない。
+- `check_parameters` `undo` `redo` `cancel` は、ファイルを書かない（`check_parameters` は実測）。最初は確認にして様子を見てよい。
+- 書式（公式の文書 `https://code.claude.com/docs/en/permissions` の "MCP" 節、JST 19:41 に WebFetch で取得）: 1 つのツールは `mcp__<サーバー名>__<ツール名>`（例 `mcp__puppeteer__puppeteer_navigate`）、サーバー全体は `mcp__<サーバー名>__*`。この登録のサーバー名は `solidcraft`。許可は `.claude/settings.json`（または `settings.local.json`）の `permissions.allow` の配列に書く。`mcp__solidcraft__*` で全部を許可するのは**しない**（書く系が入る）。読み取りの名前に共通の接頭辞が無いので、個々のツール名を並べる。配列の書式 `{"permissions": {"allow": ["mcp__solidcraft__measure", …]}}` は文書の例から【`allow` の配列の例を原文では確かめていない。`update-config` の手順で確かめてから書く】。
+
+### 推薦（決めるのは発注者）: 案 2「`.git-worktree` まで広げる」。ただし main の `cad/` は許可に残さず、書く系のツールは毎回確認にする
+
+```
+claude mcp remove solidcraft
+claude mcp add solidcraft -- solidcraft-cli mcp --allow-path <リポジトリの根>/.git-worktree --require-allow-path
+```
+
+理由:
+
+1. 試して動いたのは案 1・2・3。案 3 は main の作業ツリーと `.git` に書けるので「main を直接編集しない」と合わない。
+2. 案 1 は最も狭いが、worktree を切るたびに登録し直しが要る。並列のセッションが 5 つ動くこのリポジトリでは、切るたびの手間と、登録の食い違い（前の worktree の許可が残る・足りない）が起きやすい。
+3. 案 2 は 1 回の登録で、どの worktree の `cad/` も開ける。main の `cad/` が許可の外なので、MCP が main を書くことはなく、決まりと合う。
+4. 案 2 の弱点は、**書ける範囲が `.git-worktree` の下のすべて**になること（`save` が `.py` などを上書きできる）。そのため `save`・`export`・`execute`・`batch`・`open` は許可リストに入れず、毎回確認にして、保存先のパスを人が見る。上書きされても、追跡されたファイルは git で戻せる（未コミットの変更は `<名前>.bak` に残る）。
+
+別の worktree（他のセッションの作業）にも書けるので、**並列のセッションが動いている間は、設計に使う worktree 以外の `cad/` に触らない**と決めておく。登録のスコープ（local は `~/.claude.json` の `projects` の下に、登録した folder ごとに入る。`mcpServers` を持つのはリポジトリの根だけだった）の都合で、**worktree の folder で直接 `claude` を起動すると、登録が見えない可能性がある**【未確認。リポジトリの根で起動して worktree へ `cd` する運用なら関係しない】。
+
+### 発注者が次のセッションで確かめる手順（【未確認】のまま）
+
+1. 登録したあとに Claude Code を起動し直し、`/mcp` で `solidcraft` が `connected` と出るか、ツール名（`mcp__solidcraft__measure` など）が使えるかを見る。
+2. 使えたら Claude に `open` させて worktree の `cad/plate_mount.design.json` を開かせ、拒否されないことと、`measure` の体積が 31114.95 mm3 前後であることを確かめる。
 
 ### Claude に設計させる最小の題材
 
@@ -217,7 +288,7 @@ Izz 7.4826e-05 kg m^2、回転半径 44.04 mm
 ## 7. 確かめていないこと
 
 - ブラウザー版・デスクトップ版（GUI）での操作は全部【未実行】。File > Open が `cad/*.design.json` を開くか、Save As JSON の結果が `solidcraft-cli run` で通るか。File > Open がコマンド列（`cad/*.json`）を開くかも【未確認】。
-- 登録した MCP が、次のセッションで実際にツールを出すこと。worktree の `cad/` が拒否されること（推論のまま）と、案 1・2 が通ること。
-- `screenshot` / `compare_picture` / `snapshot`（GPU が要る。この PC では返らなかった）。
+- 登録した MCP が、次のセッションで実際にツールを出すこと（上の「次のセッションで確かめる手順」）。アプリにつないだ形（`--connect`）での許可の動きと、デスクトップ版が動いているときの窓なしの形の動き（応答の Note は「次の呼び出しでアプリにつなぐ」と言う）。
+- `screenshot` / `compare_picture` / `snapshot`（GPU が要る。この PC では返らなかった。`screenshot` は 75 秒待っても返らず、サーバーが詰まった）。
 - WSL2 の Claude Code から、Windows のデスクトップ版の `127.0.0.1` の制御の口につながるか（WSL2 のネットワーク設定次第）【未確認】。
 - GitHub の ubuntu-latest での CLI の実行。
