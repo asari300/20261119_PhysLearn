@@ -7,7 +7,7 @@
 > この章の手順は、実機が手元に無い状態で書いた。スケッチは XIAO nRF52840 Sense 向けに
 > コンパイルが通ることだけを確かめてある。実機で動かして違いに気づいたら、この章を直してほしい。
 
-価格と買う場所は `doc/research/2026-11-19-hardware.md`（S001 の調査）の「4. 推奨 BOM」(B) を見る。
+価格と買う場所は `doc/research/2026-11-19-hardware.md`の「4. 推奨 BOM」(B) を見る。
 
 ## 3.1 部品
 
@@ -81,9 +81,9 @@
 - Seeed の wiki（https://wiki.seeedstudio.com/XIAO_BLE/ 、2026-11-19 13:54 JST 取得）は、Bluetooth と低消費電力には非 mbed 版、
   「IMU & PDM advanced function」と組み込み機械学習には mbed 版（「Seeed nRF52 mbed-enabled Boards」）を勧めている。
   非 mbed 版で IMU が使えない、という記述は無い。IMU の wiki（https://wiki.seeedstudio.com/XIAO-BLE-Sense-IMU-Usage/ 、同時刻）はボード定義を指定していない。
-- ライブラリ 2.0.8 は `TARGET_SEEED_XIAO_NRF52840_SENSE` が定義されていると IMU 用の I2C バス `Wire1` を使い、非 mbed 版のコア 1.1.13 の `variant.h` がこのマクロを定義している（S016 の監査と S019 がソース `LSM6DS3.cpp:35-36`・`variant.h:4` で確認）。
-  電源ピン `PIN_LSM6DS3TR_C_POWER` もライブラリが HIGH にする（S009 がソースで確認）。つまり非 mbed 版でも IMU のバスと電源は正しく選ばれる。
-- 非 mbed 版でコンパイルは通る（S019: 58,172 バイト、7%）。**IMU が実際に値を返すかは実機で確かめていない**。
+- ライブラリ 2.0.8 は `TARGET_SEEED_XIAO_NRF52840_SENSE` が定義されていると IMU 用の I2C バス `Wire1` を使い、非 mbed 版のコア 1.1.13 の `variant.h` がこのマクロを定義している（ソース `LSM6DS3.cpp:35-36`・`variant.h:4` で確認）。
+  電源ピン `PIN_LSM6DS3TR_C_POWER` もライブラリが HIGH にする（ライブラリのソースで確認）。つまり非 mbed 版でも IMU のバスと電源は正しく選ばれる。
+- 非 mbed 版でコンパイルは通る（58,172 バイト、7%）。**IMU が実際に値を返すかは実機で確かめていない**。
 - **実機で先に確かめること**: 書き込んだら 3.5 節で `I` の行が流れるかを見る。`# ERR imu not found` が続くなら、mbed 版
   （ボードマネージャの「Seeed nRF52 mbed-enabled Boards」、FQBN は `Seeeduino:mbed:xiaonRF52840Sense`【未確認】）で書き込み直す。
   mbed 版ではこのスケッチをコンパイルしておらず、`analogWrite` の PWM の周波数も上の 62.7 kHz とは違うかもしれない【未確認】。
@@ -99,6 +99,7 @@
 ### arduino-cli
 
 ```sh
+arduino-cli config init   # 初めてのときだけ（doc/setup.md の 2.3 節）
 arduino-cli config add board_manager.additional_urls \
   https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
 arduino-cli core update-index
@@ -123,13 +124,13 @@ WSL 側で `ls /dev/ttyACM*` に出てくれば成功。Windows 側の Arduino I
 ## 3.5 端末で動作を確かめる
 
 ```sh
-picocom -b 115200 --omap crlf --echo /dev/ttyACM0     # 抜けるのは Ctrl-A Ctrl-X
+uv run python -m serial.tools.miniterm /dev/ttyACM0 115200   # 抜けるのは Ctrl-]（doc/setup.md の 4 節。追加の道具が要らない）
 ```
 
 1. `I 52310 0.012 -0.034 9.806 0.0011 -0.0007 0.0002` のような行が 1 秒に 100 行流れれば IMU は動いている。
    形の説明は `doc/protocol.md`。
 
-   IMU の測定範囲はスケッチの `setup()` で明示している（S019 で決めた。数字はライブラリ 2.0.8 の換算式から）:
+   IMU の測定範囲はスケッチの `setup()` で明示している（数字はライブラリ 2.0.8 の換算式から）:
 
    | 量 | 範囲 | 1 LSB | 決めた理由 |
    |---|---|---|---|
