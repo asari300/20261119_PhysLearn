@@ -41,7 +41,7 @@
 
 | 形式 | 大きさ | 差分 | CLI | ブラウザー版・GUI | MCP の `open` |
 | --- | --- | --- | --- | --- | --- |
-| コマンド列の JSON（`{"commands":[...]}`） | 2.5 KB、27 行 | 1 行 1 コマンド。パラメーター 1 つの変更で 4 行 | `run` が走らせる | File > Open で開くかは【未確認】 | **開けない**（`.sc`・設計 JSON・STEP・メッシュだけ） |
+| コマンド列の JSON（`{"commands":[...]}`） | 2.5 KB、22 行 | 1 行 1 コマンド。パラメーター 1 つの変更で 4 行 | `run` が走らせる | File > Open で開くかは【未確認】 | **開けない**（`.sc`・設計 JSON・STEP・メッシュだけ） |
 | 設計 JSON（`run --save x.design.json`、`"format": "solidcraft/58"`） | 10.7 KB、505 行 | 同じ変更で 12 行。再保存でバイト一致（`name` 欄はファイル名から決まる） | `run` `eval` が直接開く。`--param-check strict` も通る | File > Open / Save As JSON（[gh]`docs/book/src/guide/files.md`）【未実行】 | 開ける・`save` で書ける（確かめた） |
 | `.sc`（コンテナ） | 11.8 KB（zip） | 読めない | 開ける | 開ける | 開ける |
 
@@ -59,7 +59,7 @@
 $ solidcraft-cli run cad/plate_mount.json --save plate_mount.design.json       # レシピ → 設計 JSON
 $ solidcraft-cli run plate_mount.design.json --param-check strict --out x.step  # 設計 JSON を直接 run。終了コード 0
 $ solidcraft-cli script plate_mount.design.json --out plate_mount.script.json   # 設計 JSON → レシピ（外観は落ちる）
-o4.script.json: 12 steps
+plate_mount.script.json: 12 steps
 $ solidcraft-cli run plate_mount.script.json --out x.step --json-out x.json
   total.volume_mm3 = 31111.170273681717        （元の cad/plate_mount.json と同じ値）
 ```
@@ -96,46 +96,47 @@ Windows 側の GUI（発注者が自分で用意する。公式の README の Do
 
 ## 4. MCP: Claude Code から設計させる
 
-### 登録（発注者が実施済み）
+### 登録の状態（JST 2026-11-19 17:58 に再登録。S055 が 18:0x に `claude mcp get` で確かめた）
 
-JST 17:50 頃、統括がこのリポジトリのディレクトリで公式のコマンドを実行した（既定の local スコープ。このプロジェクトの、この利用者だけに効く。`.mcp.json` は作っていないので、リポジトリには何も入らない）。
+発注者の決定（17:50 頃）で、CLI は `~/.local/opt/solidcraft-0.44.1/` に置き、`~/.local/bin/solidcraft-cli` で呼べる。MCP は統括が 17:58 に次のコマンドで登録し直した（local スコープ。このプロジェクトの、この利用者だけに効く。`.mcp.json` は作っていないので、リポジトリには何も入らない）。`<リポジトリの根>` は main のチェックアウトの場所。
 
 ```
-$ claude mcp add solidcraft -- solidcraft-cli mcp
-$ claude mcp list
-solidcraft: solidcraft-cli mcp - ✔ Connected          （JST 17:52 に自分で見た）
+claude mcp add solidcraft -- solidcraft-cli mcp --allow-path <リポジトリの根>/cad
+claude mcp list
+solidcraft: solidcraft-cli mcp --allow-path <リポジトリの根>/cad - ✔ Connected
 ```
 
-- **今動いているセッションにはツールは現れない**。次に Claude Code を起動したセッションから使えるはず【未確認】。
-- 公式の登録の手順（[gh]`docs/mcp.md`）: `claude mcp add solidcraft -- solidcraft-cli mcp`、または プロジェクトの `.mcp.json` に `{"mcpServers": {"solidcraft": {"command": "solidcraft-cli", "args": ["mcp"]}}}`。`solidcraft-cli mcp setup --dry-run` は何を書くか見るだけ（使っていない）。
-- チームで共有するなら project スコープ（`.mcp.json` をコミット）という選択肢がある。ただし公開リポジトリなので、`solidcraft-cli` が無い人には動かない。この文書は local スコープのままにしている。
+- ツールごとの許可は**未設定**（下の「許可リストの提案」）。
+- **次に Claude Code を起動したセッションからツールが出るかは【未確認】**。今動いているセッションには出ない。
+- 公式の登録の手順（[gh]`docs/mcp.md`）: `claude mcp add solidcraft -- solidcraft-cli mcp`、または プロジェクトの `.mcp.json`。`solidcraft-cli mcp setup --dry-run` は何を書くか見るだけ（使っていない）。
+- チームで共有する project スコープ（`.mcp.json` をコミット）という選択肢はあるが、公開リポジトリで `solidcraft-cli` が無い人には動かないので、local スコープのままにしている。
 
-### 実測で分かったこと: 登録のままでは `cad/` を開けない（要・発注者の判断）
+### なぜ `--allow-path` が要るか（実測）
 
-`solidcraft-cli mcp` は、ファイルの読み書きを「許可された folder」に限る。**作業中の folder は、それだけでは許可されない**（[gh]`docs/mcp.md` "The working folder the server was started in does not count by itself"）。
-登録のまま（`--allow-path` なし）で、MCP のサーバーを起動して `open` を呼ぶと、設計ファイルのある folder が許可に入っていないため拒否された（`cad/` のコピーを scratch に置いて試した。リポジトリの `cad/` には書いていない）:
+`solidcraft-cli mcp` は、ファイルの読み書きを「許可された folder」に限る。**作業中の folder は、それだけでは許可されない**（[gh]`docs/mcp.md` "The working folder the server was started in does not count by itself"）。`--allow-path` なしで `open` を呼ぶと拒否された（S051。`cad/` のコピーを scratch に置いて試した）:
 
 ```
 open  → isError: true
   "…/cadcopy/plate_mount.design.json: outside the folders this agent may use (…/solidcraft/recovery, /tmp/solidcraft-mcp-…); allow another folder with `--allow-path DIR`"
 ```
 
-`--allow-path` を付けると、同じ操作が通った。`open` → `measure`（体積と重心）→ `execute parameters.change {TBD_robo_hole_d: 4}`（`recomputed: 2, errors: []`）→ `measure`（面積 22361.417 → 22355.385 mm²）→ `save` が全部成功した。
+`--allow-path` を付けると、同じ操作が通った。`open` → `measure`（体積と重心）→ `execute parameters.change {TBD_robo_hole_d: 4}`（`recomputed: 2, errors: []`）→ `measure` → `save` が全部成功した。`--allow-any-path` は付けていない（許可は `cad/` だけ）。正本が設計 JSON なので、Claude は MCP の `open cad/plate_mount.design.json` → `inspect_design` / `measure` / `set_parameter` / `execute` → `save` で、そのまま正本を読み書きできる。コマンド列のレシピ（`cad/*.json`）は MCP の `open` が開けないので、Claude がファイルとして編集するか、`execute` / `batch` に同じコマンドを渡して作らせる。窓なしの MCP を `--in cad/plate_mount.json` で起動すると、コマンド列から始められると公式の文書にある【未実行】。Claude が設計 JSON を直すと、レシピとずれる。ずれは `cad/expected.csv` の両方の行が同じ数字になるかで CI が見つける。
 
-**発注者への提案（決めるのは発注者）**: 登録を次の形に直す。`<リポジトリ>` は、このリポジトリの実際の場所。`cad/` は存在する folder でなければならない（無いと無視される）。
+### 未解決の点: 許可された folder は main の `cad/` で、worktree の `cad/` ではない
 
-```
-claude mcp remove solidcraft
-claude mcp add solidcraft -- solidcraft-cli mcp --allow-path <リポジトリ>/cad
-```
+許可は、登録時に書いた**絶対パス**（main のチェックアウトの `cad/`）。ところが `CLAUDE.md` は「main の作業ツリーを直接編集しない。作業は `.git-worktree/<topic>/` の feature ブランチで」と決めている。worktree の `cad/`（`<リポジトリの根>/.git-worktree/<topic>/cad`）は許可の外で、MCP の `open` が拒否される見込み。**これはパスの比較からの推論で、worktree では試していない**（S055 の注意 N-1）。
 
-`--allow-any-path` は付けない。許可は `cad/` だけにする。
+そのため、今の登録のまま MCP で設計すると、`open` する先は main の `cad/` になり、`save` は main のチェックアウトの作業ツリーを書き換える。決まりと食い違う。案（**設定は変えていない。決めるのは発注者**）:
 
-正本が設計 JSON なので、この形で Claude は MCP の `open cad/plate_mount.design.json` → `inspect_design` / `measure` / `set_parameter` / `execute` → `save` と、**そのまま正本を読み書きできる**（上の実測はこの流れ）。コマンド列のレシピ（`cad/*.json`）は MCP の `open` が開けないので、Claude がファイルとして編集するか、`execute` / `batch` に同じコマンドを渡して作らせる。窓なしの MCP を `--in cad/plate_mount.json` で起動すると、コマンド列から始められると公式の文書にある（"starting from a design file or a command script"）【未実行】。Claude が設計 JSON を直すと、レシピとずれる。ずれは `cad/expected.csv` の両方の行が同じ数字になるかで CI が見つける。
+1. **worktree ごとに `--allow-path` を足して登録し直す。** 設計の作業を始めるとき（`/start-session` の後）に `claude mcp remove solidcraft` → `claude mcp add solidcraft -- solidcraft-cli mcp --allow-path <worktree>/cad`。決まりは守れるが、worktree を切るたびに手間が増え、登録し直した後は Claude Code の再起動が要る【未確認】。
+2. **`--allow-path` を `.git-worktree` までに広げる。** `--allow-path <リポジトリの根>/.git-worktree` の 1 回で、どの worktree の `cad/` も開ける（`--allow-path` が配下を許可するかは公式の文書で確かめていない【未確認】）。許可は `.git-worktree` の下の全ファイルに広がる（`cad/` 以外も読み書きできる）。`--allow-any-path` よりは狭い。main の `cad/` を許可に残すかどうかも決める。
+3. （参考）設計の作業だけは main の `cad/` で行う例外を決まりに書く。ただし main に未コミットの変更が出るので、`CLAUDE.md` の「main に未コミットの変更があったら止める」と衝突する。おすすめしない。
+
+どれにするかは、MCP を実際に使うセッションで 1 回試してから決めるのがよい。
 
 ### MCP のツール一覧（実際に取った）
 
-`solidcraft-cli mcp --headless` を標準入出力で起動し、`initialize` → `tools/list` を送った（JST 17:50。設定は変えていない）。サーバーは `solidcraft 0.44.1`、protocolVersion `2025-06-18`。ツールは **22 個**。`annotations` の `readOnlyHint` で分けた:
+`solidcraft-cli mcp --headless` を標準入出力で起動し、`initialize` → `tools/list` を送った（JST 17:50。設定は変えていない）。サーバーは `solidcraft 0.44.1`、protocolVersion `2025-06-18`。ツールは **23 個**（自分でも `solidcraft-cli mcp --headless` に `tools/list` を送って数え直した。S055 の監査と同じ）。`annotations` の `readOnlyHint` で分けた:
 
 | 読み取りだけ（`readOnlyHint: true`、10 個） | 説明（原文の要約） |
 | --- | --- |
@@ -150,7 +151,7 @@ claude mcp add solidcraft -- solidcraft-cli mcp --allow-path <リポジトリ>/c
 | `pending` | 時間のかかっている要求の結果 |
 | `skill_reference` | 同梱の設計の手引きを読む |
 
-| 設計を変える・ファイルを書く・読む（`readOnlyHint: false`、12 個） | 注意 |
+| 設計を変える・ファイルを書く・読む（`readOnlyHint: false`、13 個） | 注意 |
 | --- | --- |
 | `execute`、`batch` | 任意のコマンドを実行。`destructive: true` |
 | `set_parameter`、`check_parameters` | パラメーターの変更（`check_parameters` は試すだけで戻る）。`destructive: false` |
@@ -172,8 +173,8 @@ claude mcp add solidcraft -- solidcraft-cli mcp --allow-path <リポジトリ>/c
 
 1. 座標は x 前・y 左・z 上、原点は車軸の中点、単位 mm。
 2. 板の長さ・幅・厚さを `parameters.add` にし、`comment` に出どころ（`datasheet` / `measured` / `assumed`）を書く。
-3. XIAO の窓の中心を原点に置く。基板の外形は 21 × 17.8 mm（`cad/dimensions.csv` の `datasheet`）。
-4. Robo Base の取付穴は未確認。`TBD_` を付けた仮のパラメーターにとどめ、**実物の板に開けない**。
+3. XIAO の窓の中心を原点に置く。基板の外形は 20.955 × 17.78 mm（`cad/dimensions.csv` の `datasheet`）。
+4. 取付穴は未確認（車体は Robo Base Mini 2WD に決まったが、板の穴は実物を測ってから）。`TBD_` を付けた仮のパラメーターにとどめ、**実物の板に開けない**。
 5. 材料は PLA。最後に `assembly.mass_properties` を呼ぶ。
 6. 手計算（体積・質量）を先に書かせ、`execute` の `expect`（`volume_mm3` と `tol`）で自己検査させる。
 
@@ -186,7 +187,7 @@ claude mcp add solidcraft -- solidcraft-cli mcp --allow-path <リポジトリ>/c
 | 1 | 寸法の出どころが `assumed` でない | 設計 JSON の `params[].comment`（またはレシピの `parameters.add` の `comment`）を読む。`datasheet` か `measured` だけが確かな寸法。`TBD_` が残っていたら実物に穴を開けない |
 | 2 | 窓と穴の位置 | 別の道具（ブラウザー版）で開いて頂点の座標を読む。XIAO の窓の中心が原点。穴の位置は**ノギスで測ってから** |
 | 3 | 座標の向き（x が前） | 16 章の約束と、板の窓の向きを画面で |
-| 4 | 質量特性が sim に入ったか | `python -m physlearn.solidcraft_props <mass.json>` の質量・Izz が、手計算 `m(a²+b²)/12` と 1 % 以内か。`cad.py` に渡した後は 16 章の表で確かめる（今は渡す口が無い。下の申し送り） |
+| 4 | 質量特性が sim に入ったか | `python -m physlearn.solidcraft_props <mass.json>` の質量・Izz が、手計算 `m(a²+b²)/12` と 1 % 以内か。`cad.py` に渡した後は 16 章の表で確かめる（`physlearn.solidcraft_props` で SI に直せる。`cad.py` の `mass_props` に渡す口は無い。5 節） |
 | 5 | パラメーターを変えても壊れない | `cad/check.sh`、または MCP の `check_parameters`（試すだけで戻る） |
 | 6 | 保存したファイルの差分が読める | `git diff cad/`。意図しない変更が無いか。`cad/expected.csv` も直したか |
 | 7 | 実物に合うか | 原寸の紙に印刷して XIAO とベースに当てる。**実機で未確認** |
@@ -204,7 +205,8 @@ $ python -m physlearn.solidcraft_props mass.json
 Izz 7.4826e-05 kg m^2、回転半径 44.04 mm
 ```
 
-- 単位の注意: 公式の文書（[gh]`docs/assembly-properties.md`）は `inertia_g_mm2`（g·mm²、"For kg·m², divide by 10⁹"）と書く。**実際の `assembly.mass_properties` の出力のキーは `inertia_world_kg_mm2` / `inertia_local_kg_mm2`（kg·mm²、SI にするには 10⁶ で割る）で、質量は `mass_kg`、重心は `center_of_mass_mm`**。3 桁違うので、`physlearn.solidcraft_props` はキーの名前で単位を決め、知らない名前は読まずに落とす。URDF の `<inertial>` は m・kg・kg m² で、そのまま読める（Izz 7.4828e-5、mass 0.038579。メッシュ積分で 0.007 % 違う）。
+- この出力と 2 節の往復の体積は、S079 が XIAO の外形を 21 × 17.8 → 20.955 × 17.78 mm に直す**前**の板のもの（体積 31111.17 mm3、Izz 7.4826e-5）。直した後は 31114.95 mm3、質量 38.5825 g、Izz 7.4827e-5（`cad/check.sh` で確かめた）。
+- 単位の注意: 公式の文書（[gh]`docs/assembly-properties.md`）は `inertia_g_mm2`（g·mm²、"For kg·m², divide by 10⁹"）と書く。**実際の `assembly.mass_properties` の出力のキーは `inertia_world_kg_mm2` / `inertia_local_kg_mm2`（kg·mm²、SI にするには 10⁶ で割る）で、質量は `mass_kg`、重心は `center_of_mass_mm`**。3 桁違うので、`physlearn.solidcraft_props` はキーの名前で単位を決め、知らない名前は読まずに落とす。URDF の `<inertial>` は m・kg・kg m² で、そのまま読める（Izz 7.4828e-5、mass 0.038579。メッシュ積分で 0.002〜0.003 % 違う）。
 - 世界座標のテンソルなので、**設計が z 上のとき、鉛直軸まわり（ヨー）の慣性が Izz**。板を寝かせて作った設計を渡すと軸が入れ替わる。依頼文で z 上を固定する。
 - 見本は `tests/data/solidcraft/`（実際の出力）、試験は `tests/test_solidcraft_props.py`。
 
@@ -215,7 +217,7 @@ Izz 7.4826e-05 kg m^2、回転半径 44.04 mm
 ## 7. 確かめていないこと
 
 - ブラウザー版・デスクトップ版（GUI）での操作は全部【未実行】。File > Open が `cad/*.design.json` を開くか、Save As JSON の結果が `solidcraft-cli run` で通るか。File > Open がコマンド列（`cad/*.json`）を開くかも【未確認】。
-- 登録した MCP が、次のセッションで実際にツールを出すこと。`--allow-path` 付きの再登録後の動き。
+- 登録した MCP が、次のセッションで実際にツールを出すこと。worktree の `cad/` が拒否されること（推論のまま）と、案 1・2 が通ること。
 - `screenshot` / `compare_picture` / `snapshot`（GPU が要る。この PC では返らなかった）。
 - WSL2 の Claude Code から、Windows のデスクトップ版の `127.0.0.1` の制御の口につながるか（WSL2 のネットワーク設定次第）【未確認】。
 - GitHub の ubuntu-latest での CLI の実行。

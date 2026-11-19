@@ -1,6 +1,9 @@
 # cad/ 筐体の設計
 
-Cytron Robo Base 2WD の上に載せる取り付け板（またはケース）の設計の置き場。
+車体の上に載せる取り付け板（またはケース）の設計の置き場。
+
+**車体は Cytron の Robo Base ミニキット 2WD（スイッチサイエンス 10530）に確定した**（発注者の決定、JST 2026-11-19 18:20 頃）。元の Robo Base キット 2WD（10708）は売り切れで、使わない。ミニの板の外形・取付穴・トレッド・車輪径は**どこにも数字が見つからず、すべて【未確認】**。構成（TT モーター 2、車輪 2、板 2 枚、キャスター 1、スタンド）も、調査（[chassis-alternatives](../doc/research/2026-11-19-chassis-alternatives.md)）の検索の要約であって、商品ページの直読ではない。**届いたら最初にトレッドと車輪の径を測り、`dimensions.csv` と sim（`sim.Params`・`diffdrive.xml`）を直す。** ミニは 2WD よりトレッドが狭い可能性があり、80 mm 以下だとその場旋回がジャイロの範囲（±1000 dps = 17.5 rad/s）を超えるおそれがある（調査の見積もり。duty の上限 `DUTY_MAX` の見直しが要る）。
+
 道具は SolidCraft。CLI は動かして確かめた（下の「走らせ方」）。本家 https://github.com/tangency-labs/solidcraft 、最新の正式版 v0.44.1、2026-11-17 公開、JST 2026-11-19 14:10 に GitHub の API で確認。旧名 `bherbruck/solidcraft` は同じリポジトリ。調査: [doc/research/2026-11-19-solidcraft.md](../doc/research/2026-11-19-solidcraft.md)。
 ただし下の要件と寸法表は道具に依らない。
 
@@ -8,10 +11,10 @@ Cytron Robo Base 2WD の上に載せる取り付け板（またはケース）�
 
 | ファイル | 中身 |
 | --- | --- |
-| `dimensions.csv` | 部品の外形・質量の表。**寸法の唯一の置き場**。各値に出どころ（`datasheet` / `measured` / `cad` / `assumed`）と URL・取得時刻。届いたら `measured` 欄に測った値を書く |
+| `dimensions.csv` | 部品の外形・質量の表。XIAO・AE-DRV8835-S・電池ボックス・電池・ブレッドボードは調査（[dimensions](../doc/research/2026-11-19-dimensions.md)）の値を写した（`datasheet` と、販売店の値の参考値 `assumed`）。車体は 2WD（売り切れ。使わない）の行を残し、ミニの行を足した（値は全部【未確認】）。**寸法の唯一の置き場**。各値に出どころ（`datasheet` / `measured` / `cad` / `assumed`）と URL・取得時刻。届いたら `measured` 欄に測った値を書く |
 | `plate.json` | 板だけ（120 × 90 × 3 mm、穴なし）。SolidCraft v0.44.1 の CLI で STEP が書き出せることを確かめた最小の例 |
-| `plate_mount.json` | 取り付け板。パラメーター付き。XIAO の窓（datasheet の外形 + 逃げ）と、Robo Base 取付穴の**仮の値**の 4 穴。材料 PLA（密度は SolidCraft の表の値） |
-| `plate_mount.design.json` | `plate_mount.json` から `solidcraft-cli run … --save` で作った**設計 JSON**（10.7 KB、505 行、`"format": "solidcraft/58"`）。ブラウザー版・GUI・MCP の `open` が開ける形。**正本（下の「どれを正にするか」）** |
+| `plate_mount.json` | 取り付け板。パラメーター付き。XIAO の窓（datasheet の外形 20.955 × 17.78 mm + 逃げ）と、取付穴の**仮の値**の 4 穴（100 × 60 mm は 2WD を想定した値で、ミニの穴ではない）。板の幅・奥行も仮の値（`TBD_plate_w`・`TBD_plate_d`）。材料 PLA（密度は SolidCraft の表の値） |
+| `plate_mount.design.json` | `plate_mount.json` から `solidcraft-cli run … --save` で作った**設計 JSON**（約 10.7 KB、505 行、`"format": "solidcraft/58"`）。ブラウザー版・GUI・MCP の `open` が開ける形。**正本（下の「どれを正にするか」）** |
 | `plate_mass.json` | 質量特性を読む 1 コマンド（`assembly.mass_properties`）。`--in` で設計に重ねて使う |
 | `expected.csv` | ファイルごとの体積・質量・Izz の期待値（手計算）。CI（`.github/workflows/cad.yml`）が `check.sh` で比べる |
 | `check.sh` `check_expected.py` | `cad/expected.csv` の各スクリプトを STEP にして数字を比べる。手元は `cad/check.sh`（`solidcraft-cli` が PATH にあること） |
@@ -56,22 +59,22 @@ CLI は 0.1 秒で終わる。設定は書かない。STEP を読むと読み込
 
 ### パラメーターを変える（パラメトリック設計）
 
-`plate_mount.json` の先頭のパラメーターを変えて再計算できる。仮の値は名前が `TBD_` で始まる。Robo Base が届いて測ったら、`TBD_robo_hole_dx` `TBD_robo_hole_dy` `TBD_robo_hole_d` の 3 つの数字を直す。
+`plate_mount.json` の先頭のパラメーターを変えて再計算できる。仮の値は名前が `TBD_` で始まる。ミニが届いて測ったら、`TBD_robo_hole_dx` `TBD_robo_hole_dy` `TBD_robo_hole_d`（取付穴）と `TBD_plate_w` `TBD_plate_d`（板の外形）の数字を直す。
 
 ```bash
 echo '{"commands":[{"command":"parameters.change","params":{"changes":{"TBD_robo_hole_dx":"94","TBD_robo_hole_d":"4"}}}]}' > change.json
 solidcraft-cli run change.json --in plate_mount.sc --out changed.step
 ```
 
-確かめた結果: 穴の中心が x = ±50 → ±47、径 3.2 → 4.0 になり、体積は 31111.17 → 31056.88 mm3（手計算 31056.9）。
+確かめた結果（JST 2026-11-19 18:2x、S079 が XIAO の外形を 20.955 × 17.78 に直した後に再走）: 穴の中心が x = ±50 → ±47、径 3.2 → 4.0 になり、体積は 31114.95 → 31060.66 mm3（手計算 31060.66）。
 
 ### 板の設計（`plate_mount.json`）の根拠
 
 | 要素 | 値 | 出どころ |
 | --- | --- | --- |
-| XIAO の窓 | (21 + 2 × 0.3) × (17.8 + 2 × 0.3) mm、板の中心 | 外形は `datasheet`。逃げ 0.3 mm は設計者の仮定（`xiao_clearance`）。XIAO には取付穴が無いので、窓で位置を決める枠にした。基板の厚み・押さえる方法は【未確認】で、窓は貫通 |
-| 4 つの穴 | 間隔 100 × 60 mm、径 3.2 mm | **仮の値（`TBD_`）**。Robo Base の取付穴は【未確認】。**届く前に実物の板に穴を開けない** |
-| 板 | 120 × 90 × 3 mm | `assumed`（MJCF の車体に合わせた） |
+| XIAO の窓 | (20.955 + 2 × 0.3) × (17.78 + 2 × 0.3) mm = 21.555 × 18.38 mm、板の中心 | 外形は `datasheet`（Seeed の基板データ。以前は丸めた 21 × 17.8 だった）。逃げ 0.3 mm は設計者の仮定（`xiao_clearance`）。**窓は貫通で、XIAO を支えない**（下の「今の板が何のためか」） |
+| 4 つの穴 | 間隔 100 × 60 mm、径 3.2 mm | **仮の値（`TBD_`）**。2WD を想定した値で、車体は**ミニ**に変わった。ミニの取付穴は【未確認】。**届いて測る前に実物の板に穴を開けない** |
+| 板 | 120 × 90 × 3 mm | `assumed`（MJCF の車体に合わせた）。幅と奥行は**仮の値と分かる名前**（`TBD_plate_w`・`TBD_plate_d`）にした（S053 の指摘 7）。厚さ `plate_t` は作る材料で決める設計値なので `TBD_` にしていない |
 | 材料 | PLA 1.24 g/cm3 | SolidCraft の材料表の値。板を何で作るかは決めていない |
 
 AE-DRV8835-S・電池ボックス・ブレッドボードの置き場は、寸法が【未確認】なので、まだ描いていない。
@@ -80,33 +83,43 @@ AE-DRV8835-S・電池ボックス・ブレッドボードの置き場は、寸�
 
 | | SolidCraft（`assembly.mass_properties`） | 手計算（板 − 窓 − 4 穴） | `cad.mass_props`（同じ質量の直方体 120 × 90 × 3） |
 | --- | --- | --- | --- |
-| 質量 | 38.578 g | 38.578 g | （入力） |
+| 質量 | 38.5825 g | 38.5825 g | （入力） |
 | 重心 | (0, 0, 1.5) mm | 同じ | 同じ |
-| Izz | 7.4826e-5 kg m2 | 7.4824e-5 | 7.2333e-5（CAD の 0.967 倍） |
+| Izz | 7.4827e-5 kg m2 | 7.48244e-5 | 7.2342e-5（CAD の 0.967 倍） |
 
-質量は体積と一致、Izz は手計算と 4 桁で一致（差 0.004 %、円のメッシュ化の差と思われる【未確認】）。
-窓と穴の分だけ材料が外側に寄るので、直方体の近似は Izz を 3.4 % 低く見積もる。板が車体の慣性に占める割合は小さいが、**CAD → sim は、直方体の近似の代わりに CAD の出力を渡せる**。
-`physlearn.cad.mass_props` は Izz を直接持つ部品を受けないので、今は比べるだけにした。CAD の出力ファイルを SI で読む口は `physlearn.solidcraft_props`（`python -m physlearn.solidcraft_props mass.json`）。URDF の書き出し（`file.export_urdf`）も動き、同じ板の `<inertial>` は mass 0.0385790、izz 7.48278e-5（STL のメッシュから積分した値で、上の厳密な値と 0.007 % 違う）。
+質量は体積と一致、Izz は手計算と 4 桁で一致（差 0.004 %、円のメッシュ化の差と思われる【未確認】）。数字は XIAO の外形を 20.955 × 17.78 に直した後の板（体積 31114.95 mm3）。
+窓と穴の分だけ材料が外側に寄るので、直方体の近似は Izz を 3.3 % 低く見積もる。板が車体の慣性に占める割合は小さいが、**CAD → sim は、直方体の近似の代わりに CAD の出力を渡せる**。
+`physlearn.cad.mass_props` は Izz を直接持つ部品を受けないので、今は比べるだけにした。CAD の出力ファイルを SI で読む口は `physlearn.solidcraft_props`（`python -m physlearn.solidcraft_props mass.json`）。URDF の書き出し（`file.export_urdf`）も動き、同じ板の `<inertial>` は mass 0.0385790、izz 7.48278e-5（直す前の板）（STL のメッシュから積分した値。上の厳密な値との差は 0.002〜0.003 %。この値は XIAO の外形を直す前の板で走らせたもので、直した後は URDF を走らせ直していない）。
 
 
 ## 要件
 
-1. **固定するもの**: XIAO nRF52840 Sense（ブレッドボードに挿す）、AE-DRV8835-S、ブレッドボード、単3×4 の電池ボックス。走行中の振動で動かないこと。IMU の値が板の揺れを拾うので、XIAO の周りは固く留める。
+1. **固定するもの**: XIAO nRF52840 Sense（ブレッドボードに挿す。要件としてはこれが前提）、AE-DRV8835-S、ブレッドボード、単3×4 の電池ボックス。走行中の振動で動かないこと。IMU の値が板の揺れを拾うので、XIAO の周りは固く留める。
 2. **IMU の置き場所: 旋回中心（左右の車軸の中点）の真上**。
    - 中心から前へ d ずらすと、旋回中の加速度 x に向心加速度 −ω²d が乗る（下の計算と 16 章）。角加速度があれば y に接線成分 α·d も乗る。
    - ジャイロ（角速度）は置き場所に依らない。困るのは加速度だけ。
-   - 向き: 基板の軸を機体の軸（x 前・y 左・z 上、`api.py`）に合わせる。合わないときは `physlearn link --axes` で対応を書く（例 `-y,x,z`）。基板上の IMU の位置と軸の向きは【未確認】。
+   - 向き: 基板の軸を機体の軸（x 前・y 左・z 上、`api.py`）に合わせる。合わないときは `physlearn link --axes` で対応を書く（例 `-y,x,z`）。基板上の IMU の位置と軸の向きは、基板データ（KiCad）からの読み（`dimensions.csv`）はあるが、実物では未確認。
 3. **USB ケーブル**: 繋いだまま回すとケーブルがねじれる。その場旋回の実験では、ケーブルを上から吊るして逃がすか、回転の合計を 1〜2 回に抑える。USB-C の口の前に指が入る空き（10 mm 程度、目安）を残す。
 4. **電池**: 一番重い部品。旋回中心に近いほどヨーの慣性が小さく、応答が速い（下の計算では 4 cm ずらすと τ が約 15 % 延びた）。交換できるよう蓋が開く向きに置く。
 5. **配線の逃げ**: モーターの線（15 cm）が板を通る穴か切り欠き。ジャンパー線が車輪に触れない。
 6. **作り方を選ばない形**: 平板 1 枚 + 穴 + 結束バンドの穴、を基本にする。3D プリント、レーザー加工（アクリル・MDF）、手加工（プラ板・段ボールにドリル）のどれでも作れる。
 
+## 今の板が何のための板か
+
+**`plate_mount.json` は「SolidCraft の流れを通す試し」の板で、そのまま作って使う設計ではない。** パラメーター → 窓と穴 → STEP → 質量特性 → `physlearn.cad` へ、という流れが通ることを確かめるために描いた。
+
+- 要件 1 は XIAO を**ブレッドボードに挿す**と言う。今の板の XIAO の窓は貫通で、XIAO を支えない（S053 の指摘 7）。窓は IMU を旋回中心に置く**目印**としてだけ使える。XIAO を実際にどう固定するか（ブレッドボードを板に載せて留める、板に XIAO 用の枠を作る、など）は**決めていない**。
+- 板が要るかどうかも決めていない。ミニは板が 2 枚入りで、上の板に部品を直接載せられるなら、この取り付け板そのものが要らないかもしれない。**ミニの実物を見てから決める**。
+- 板の外形と取付穴は仮の値（`TBD_`）。AE-DRV8835-S・電池ボックス・ブレッドボードの置き場は、まだ描いていない。
+
 ## 寸法について
 
-`dimensions.csv` の部品の寸法・質量は、XIAO の外形（21 × 17.8 mm）以外すべて【未確認】。
-**Robo Base の上板の取付穴の位置は確かめていない。届く前に穴を開けない。** 届いたらノギスと秤で測って `measured` 欄を埋める。
+`dimensions.csv` の部品の寸法・質量は、調査（`doc/research/2026-11-19-dimensions.md`、JST 17:36〜17:47 に読んだメーカー・販売店の文書）の値を写した。**メーカーの文書の値は `datasheet`、販売店の値は `assumed`（参考値）**。実物では何も測っていない。【未確認】のまま残るのは、AE-DRV8835-S と電池ボックスの質量、ミニの全部の行（2WD の行も同じ）。
+**ミニの上板の取付穴の位置は確かめていない。届いて測る前に穴を開けない。** 届いたらノギスと秤で測って `measured` 欄を埋める。
 
-sim の車輪半径とトレッドは numpy（`sim.Params`: 16 mm・80 mm）と MuJoCo（`diffdrive.xml`: 30 mm・100 mm）で食い違っている。どちらも測った値ではない（`assumed`）。今回は直していない。
+**表を読むコードの注意**: `physlearn.cad.dimension()` が車輪半径・トレッドを探す部品名は `Cytron Robo Base 2WD`（`WHEEL_PARTS`）。ミニの行（`Cytron Robo Base Mini 2WD`）に `measured` を書いても、コードの `WHEEL_PARTS` にミニを足すまで読まれない。試験（`tests/test_cad.py`）が 2WD の行の名前を使うので、2WD の行は消さずに残した。コードの直しは S079 の持ち分でなく、統括に回した。
+
+sim の車輪半径とトレッドは、S041 で numpy（`sim.Params`）と MuJoCo（`diffdrive.xml`）を **30 mm・100 mm に一本化した**（試験が表の「sim の今の値 (MJCF)」の行と一致を固定する）。どちらも測った値ではない（`assumed`）。ミニを測ってから、表を正として直す。
 
 ## CAD → sim
 

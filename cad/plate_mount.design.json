@@ -4,17 +4,17 @@
   "units": "mm",
   "params": [
     {
-      "name": "plate_w",
+      "name": "TBD_plate_w",
       "expr": "120",
       "unit": "mm",
-      "comment": "assumed: 板の幅(x)。MJCF の chassis と同じ。Robo Base の上板は未測定",
+      "comment": "仮の値(assumed): 板の幅(x)。MJCF の chassis と同じ。車体は Robo Base Mini 2WD に決まったが上板は未測定。届いて測ったら直す",
       "model": false
     },
     {
-      "name": "plate_d",
+      "name": "TBD_plate_d",
       "expr": "90",
       "unit": "mm",
-      "comment": "assumed: 板の奥行(y)",
+      "comment": "仮の値(assumed): 板の奥行(y)。同上",
       "model": false
     },
     {
@@ -26,14 +26,14 @@
     },
     {
       "name": "xiao_w",
-      "expr": "21",
+      "expr": "20.955",
       "unit": "mm",
-      "comment": "datasheet: XIAO nRF52840 の外形 21 x 17.8 mm (dimensions.csv)",
+      "comment": "datasheet: XIAO nRF52840 の外形 20.955 x 17.78 mm (Seeed の基板データ。dimensions.csv)",
       "model": false
     },
     {
       "name": "xiao_d",
-      "expr": "17.8",
+      "expr": "17.78",
       "unit": "mm",
       "comment": "datasheet: 同上",
       "model": false
@@ -49,7 +49,7 @@
       "name": "TBD_robo_hole_dx",
       "expr": "100",
       "unit": "mm",
-      "comment": "仮の値(未確認): Robo Base の上板の取付穴の x 方向の間隔。届いて測ったらこの 1 つを直す",
+      "comment": "仮の値(未確認): 取付穴の x 方向の間隔。100 x 60 は 2WD(売り切れ)を想定した値で、車体は Mini に変わった。穴の位置は実物を測ってから",
       "model": false
     },
     {
@@ -135,8 +135,8 @@
             ],
             "fixed": true,
             "exprs": {
-              "x": "plate_w/2",
-              "y": "plate_d/2"
+              "x": "TBD_plate_w/2",
+              "y": "TBD_plate_d/2"
             }
           },
           {
@@ -158,24 +158,24 @@
           {
             "id": "p6",
             "pos": [
-              -10.8,
-              -9.200000000000001
+              -10.7775,
+              -9.190000000000001
             ],
             "fixed": false
           },
           {
             "id": "p7",
             "pos": [
-              10.8,
-              -9.200000000000001
+              10.7775,
+              -9.190000000000001
             ],
             "fixed": false
           },
           {
             "id": "p8",
             "pos": [
-              10.8,
-              9.200000000000001
+              10.7775,
+              9.190000000000001
             ],
             "fixed": true,
             "exprs": {
@@ -186,8 +186,8 @@
           {
             "id": "p9",
             "pos": [
-              -10.8,
-              9.200000000000001
+              -10.7775,
+              9.190000000000001
             ],
             "fixed": false
           },
