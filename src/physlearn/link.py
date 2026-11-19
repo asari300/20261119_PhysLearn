@@ -2,6 +2,8 @@
 
     uv run python -m physlearn.link still --port /dev/ttyACM0 --seconds 10 --out still.csv
     uv run python -m physlearn.link id    --port /dev/ttyACM0 --out id.csv
+    uv run python -m physlearn.link jog   --port /dev/ttyACM0 --left 0.3        # 車輪を浮かせて
+    uv run python -m physlearn.link run   --port /dev/ttyACM0 --params p.json --out run.csv
 """
 
 import argparse
@@ -163,18 +165,109 @@ def record(plant: SerialPlant, schedule, dt: float, out: str) -> None:
                 w.writerow([f"{getattr(o, k):.6g}" for k in LOG_COLUMNS[:7]] + [sent.left, sent.right])
 
 
+TARGET_MAX = 5.0  # rad/s。SafetyGate の gz_limit 15 より十分小さく
+RUN_MAX_S = 3.0
+JOG_MAX_S = 1.0
+REST_S = 1.0  # 回の間に止めて待つ秒数。モーターの時定数 0.08〜0.2 s の 5 倍以上
+
+
+def jog(plant: SerialPlant, cmd: Command, seconds: float, dt: float = 0.01) -> float:
+    """cmd を seconds だけ（ゲート越しに）出して止める。後半の gz の平均を返す（立ち上がりを除く）。"""
+    from physlearn.control import SafetyGate
+
+    gate, obs, gz = SafetyGate(), plant.reset(), []
+    for _ in range(round(seconds / dt)):
+        obs = plant.step(gate(cmd, obs, dt), dt)
+        gz.append(obs.gz)
+    plant.stop()
+    return float(np.mean(gz[len(gz) // 2 :]))
+
+
+def run_loop(plant: SerialPlant, ctrl_factory, target: float, seconds: float, dt: float = 0.01):
+    """+target → -target の 2 回、control.run で回す（正味の回転を 0 に近づけ、ケーブルをねじらない）。
+
+    返り値: (ログの行, [(符号, metrics), ...])。評価は gz からバイアスを引いたもの（実機には真値が無い）。
+    """
+    from physlearn.control import SafetyGate, metrics, run
+
+    rows, res = [], []
+    for sign in (1, -1):
+        ctrl = ctrl_factory()
+        r, t, y = run(plant, ctrl, sign * target, seconds, dt)
+        plant.stop()
+        # run は reset から測り始める。回ったままだと次の回の初期値になるので、止まるまで待つ
+        for _ in range(round(REST_S / dt)):
+            plant.step(Command(0.0, 0.0), dt)
+        rows += r
+        # run の中のゲートは外から見えないので、同じ閾値で作動したかを見て、次の回に進まない
+        if not np.all(np.abs(y) <= SafetyGate().gz_limit):
+            raise RuntimeError(f"安全ゲートが作動した（|gz| > {SafetyGate().gz_limit} か NaN）。止めた")
+        res.append((sign, metrics(t, sign * (y - ctrl.bias), target)))
+    return rows, res
+
+
 def main(argv=None) -> None:
     p = argparse.ArgumentParser(prog="python -m physlearn.link", description=__doc__.splitlines()[0])
-    p.add_argument("mode", choices=["still", "id"], help="still: IMU だけ記録 / id: sim と同じ同定用の左右交互の旋回")
+    p.add_argument(
+        "mode",
+        choices=["still", "id", "jog", "run"],
+        help="still: IMU だけ記録 / id: 同定用の左右交互の旋回 / jog: 車輪を少し回して gz を見る / run: PI の閉ループ",
+    )
     p.add_argument("--port", required=True, help="例 /dev/ttyACM0")
-    p.add_argument("--out", required=True, help="出力 CSV")
+    p.add_argument("--out", help="出力 CSV（still・id では必須）")
     p.add_argument("--axes", default="x,y,z", help="機体 x,y,z に当たる基板の軸（符号つき）")
     p.add_argument("--dt", type=float, default=0.01)
-    p.add_argument("--seconds", type=float, default=10.0, help="still の長さ")
+    p.add_argument("--seconds", type=float, help=f"長さ。still 10 / jog 0.5（上限 {JOG_MAX_S}）/ run 1 回ぶん 2.0（上限 {RUN_MAX_S}）")
+    p.add_argument("--left", type=float, default=0.0, help="jog の左 duty")
+    p.add_argument("--right", type=float, default=0.0, help="jog の右 duty")
+    p.add_argument("--params", help="run: ゲインを決めるパラメータ JSON（physlearn sysid --out。無ければ公称値）")
+    p.add_argument("--tc", type=float, help="run: 閉ループ時定数を手で与える（無ければ randomize.tune で探す）")
+    p.add_argument("--target", type=float, help=f"run: 目標のヨー角速度 [rad/s]（既定 control.TARGET、上限 {TARGET_MAX}）")
     a = p.parse_args(argv)
-    if not (0 < a.dt < 1 and 0 < a.seconds < 3600):  # NaN も弾く
-        p.error("--dt は 0〜1 秒、--seconds は 0〜3600 秒")
+    from physlearn.control import DURATION, TARGET
+
+    a.seconds = a.seconds if a.seconds is not None else {"still": 10.0, "jog": 0.5, "run": DURATION}.get(a.mode, 10.0)
+    a.target = TARGET if a.target is None else a.target
+    smax = {"jog": JOG_MAX_S, "run": RUN_MAX_S}.get(a.mode, 3600)
+    # `not (a < x < b)` の形で NaN も弾く
+    if not (0 < a.dt < 1 and 0 < a.seconds <= smax):
+        p.error(f"--dt は 0〜1 秒、--seconds は 0〜{smax} 秒")
+    if a.mode in ("still", "id") and not a.out:
+        p.error(f"{a.mode} には --out が要る")
+    if a.mode == "jog" and not (abs(a.left) <= DUTY_MAX and abs(a.right) <= DUTY_MAX):
+        p.error(f"--left・--right は ±{DUTY_MAX} 以内")
+    if a.mode == "run" and not (0 < a.target <= TARGET_MAX):
+        p.error(f"--target は 0〜{TARGET_MAX} rad/s（負の向きは自動で回す）")
+    if a.mode == "run" and a.tc is not None and not (0.03 <= a.tc <= 1):
+        p.error("--tc は 0.03〜1 秒")
+    if a.mode == "run":
+        from physlearn.control import SPEC, design, passes
+        from physlearn.randomize import tune
+        from physlearn.sim import Params
+
+        base = Params.load(a.params) if a.params else Params()
+        tc = a.tc or tune(base)[0]  # loop_demo と同じ決め方
+        c = design(base, tc)
+        print(f"tc={tc}  kp={c.kp:.4f}  ki={c.ki:.4f}  deadband={c.deadband:.3f}  bias={c.bias:.4f}")
+        print(f"仕様 {SPEC}。+{a.target} → -{a.target} rad/s を {a.seconds} s ずつ。車輪を浮かせたか、床なら周りを空けたか確かめて。", flush=True)
+    elif a.mode == "jog":
+        print(f"jog left={a.left} right={a.right} を {a.seconds} s。車輪を浮かせたか確かめて。", flush=True)
     with SerialPlant(a.port, a.axes) as plant:
+        if a.mode == "jog":
+            g = jog(plant, Command(a.left, a.right), a.seconds, a.dt)
+            print(f"gz の平均（後半）{g:+.3f} rad/s（バイアス込み）。右だけ正 → gz 正（左回り）が正しい向き")
+            return
+        if a.mode == "run":
+            rows, res = run_loop(plant, lambda: design(base, tc), a.target, a.seconds, a.dt)
+            if a.out:
+                write_csv(a.out, rows)
+                print(f"wrote {a.out}")
+            for sign, m in res:
+                print(
+                    f"[{'+' if sign > 0 else '-'}{a.target}] 整定 {m['settle']:.2f} s  行き過ぎ {m['overshoot'] * 100:.1f} %"
+                    f"  定常偏差 {m['ss_error']:.3f} rad/s  仕様 {'OK' if passes(m) else 'NG'}"
+                )
+            return
         if a.mode == "still":
             record(plant, [(a.seconds, Command(0.0, 0.0))], a.dt, a.out)
         else:

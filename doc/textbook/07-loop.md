@@ -100,6 +100,41 @@ $ uv run --extra mujoco physlearn loop-demo --real mujoco
 
 この置き換えは実機が無いので **確かめていません**。実機では真のヨー角速度が無く gz で評価するので、バイアスの推定が外れていると、そのずれは数字に出ません。
 
+## 実機の経路で 1 周
+
+偽の XIAO（12 章）で確かめた。実機では確かめていない。
+ここでは Python の中で代役を直に回すのではなく、`python -m physlearn.link` だけを使い、シリアル越しに 1 周します。
+
+```bash
+# 端末 1
+uv run python -m physlearn.fakexiao             # 表示された /dev/pts/N を使う
+# 端末 2
+uv run python -m physlearn.link run --port /dev/pts/N --out before.csv          # 公称のパラメータで
+uv run python -m physlearn.link id  --port /dev/pts/N --out id.csv
+uv run physlearn sysid id.csv --out p.json
+uv run python -m physlearn.link run --port /dev/pts/N --params p.json --out after.csv
+```
+
+出力（抜粋）:
+
+```text
+tc=0.08  kp=0.0833  ki=1.0417  deadband=0.050  bias=0.0000
+[+3.0] 整定 0.76 s  行き過ぎ 8.7 %  定常偏差 0.000 rad/s  仕様 NG
+[-3.0] 整定 0.88 s  行き過ぎ 11.7 %  定常偏差 0.002 rad/s  仕様 NG
+gyro_bias 0.0803  yaw_gain 7.8514  deadband 0.1495  motor_tau 0.1958
+tc=0.2  kp=0.1247  ki=0.6368  deadband=0.149  bias=0.0803
+[+3.0] 整定 0.52 s  行き過ぎ 1.3 %  定常偏差 0.002 rad/s  仕様 OK
+[-3.0] 整定 0.52 s  行き過ぎ 1.5 %  定常偏差 0.000 rad/s  仕様 OK
+```
+
+同じ日の `physlearn loop-demo`（代役を直に回し、真のヨー角速度で測る）は、前が 整定 0.64 s・行き過ぎ 5.8 %・定常偏差 0.081 rad/s、後が 0.50 s・0.1 %・0.001 rad/s でした。
+差は 3 つあり、どれも「sim と実機の差」の小さな実例です。
+
+- **前の定常偏差 0.081 と 0.000。** シリアル越しには真の角速度が無く、gz − バイアス（公称の 0）で測ります。制御器は gz を 3 に合わせるので、gz で測る限り偏差は 0 に見えます。本当の角速度は 3 − 0.08 です。バイアスのずれは、gz で測る限り見えません。
+- **行き過ぎが 1〜3 ポイント大きい。** gz には雑音（偽物では標準偏差 0.015 rad/s）が乗り、その最大値を拾うためだと考えています。0.045 rad/s（3σ）は 3 rad/s の 1.5 % です【推定。分けて測っていない】。
+- **前の整定 0.76 s と 0.64 s。** 雑音が ±5 % の帯の出入りを増やすこと、負の向きは正の回と別の雑音を引くことが効くと考えています【未確認】。
+  同じゲイン（t_c = 0.15、同定後）で比べた試験 `tests/test_real_loop.py` では、直に回すと 整定 0.34 s・行き過ぎ 3.9 %、シリアル越しでは 0.34 s・4.8 % でした。1 step の遅れによる差は、この偽物では見えませんでした（偽物の遅れはほぼ 0。本物の USB の遅れは【未確認】）。
+
 ## 演習
 
 1. `HIDDEN` のバイアスを 0 にして loop-demo を回すと、「前」は仕様を満たすか。外れるなら、どの量で外れるか。

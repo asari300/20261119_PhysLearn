@@ -193,6 +193,16 @@ u = 0.5 を 1 秒で最大 約 9 rad ≈ 1.4 回転。立ち上がりの遅れ�
 - PC 側のプログラムが止まれば、200 ms でモーターも止まる。`SerialPlant` は終了時・例外時に停止を送る。
   それでも止まらなければ、電池を外す。
 
+## 3.9 PC から回す: jog と run
+
+偽の XIAO（12 章）で確かめた。実機では確かめていない。どちらも初めは車輪を浮かせる。
+
+- `uv run python -m physlearn.link jog --port /dev/ttyACM0 --right 0.3`: 指定の duty を 0.5 s（上限 1 s）だけ安全ゲート越しに出して止め、後半の gz の平均を出す。右だけ正で gz が正なら向きは合っている。
+- `uv run python -m physlearn.link run --port /dev/ttyACM0 --params p.json --out run.csv`: パラメータ JSON からゲインを決め（`randomize.tune`、または `--tc`）、`control.run` と同じ閉ループで +3 → −3 rad/s を 2 s ずつ回す。回の間は 1 s 止める。各回の整定・行き過ぎ・定常偏差と `control.SPEC` の合否を出す。
+- 引数の上限: `--target` 5 rad/s、`--seconds` 3 s（jog は 1 s）、jog の duty ±0.6。外れたら回さずに終わる。
+- 例外・Ctrl-C では `SerialPlant` が停止を送る。安全ゲートが作動したら（|gz| > 15 rad/s か NaN）、例外で止まり、次の回に進まない。
+- ウォッチドッグ（200 ms）を PC から確かめる口は作っていない。3.5 の端末で確かめる。
+
 ## 演習
 
 1. 静止ログの `gz` の平均と標準偏差を求めよ。平均は「ゼロ点のずれ（バイアス）」、標準偏差は「ノイズ」である。
