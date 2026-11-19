@@ -12,6 +12,8 @@ Cytron Robo Base 2WD の上に載せる取り付け板（またはケース）�
 | `plate.json` | 板だけ（120 × 90 × 3 mm、穴なし）。SolidCraft v0.44.1 の CLI で STEP が書き出せることを確かめた最小の例 |
 | `plate_mount.json` | 取り付け板。パラメーター付き。XIAO の窓（datasheet の外形 + 逃げ）と、Robo Base 取付穴の**仮の値**の 4 穴。材料 PLA（密度は SolidCraft の表の値） |
 | `plate_mass.json` | 質量特性を読む 1 コマンド（`assembly.mass_properties`）。`--in` で設計に重ねて使う |
+| `expected.csv` | 設計ごとの体積・質量・Izz の期待値（手計算）。CI（`.github/workflows/cad.yml`）が `check.sh` で比べる |
+| `check.sh` `check_expected.py` | `cad/expected.csv` の各スクリプトを STEP にして数字を比べる。手元は `cad/check.sh`（`solidcraft-cli` が PATH にあること） |
 | `README.md` | この文書（要件と走らせ方） |
 
 コミットするもの: 寸法表、スクリプト `.json`（テキスト。設計の正本）。
@@ -31,6 +33,9 @@ solidcraft-cli run cad/plate_mass.json --in plate_mount.sc --results --json-out 
 
 CLI は 0.1 秒で終わる。設定は書かない。STEP を読むと読み込みのキャッシュを `$XDG_DATA_HOME/solidcraft/imports/` に作る。
 **効かなかったもの**: `snapshot` と `gpu` は、GPU の無いこの環境（`/dev/dri` の権限なし）で 90 秒以上返らず、画像は出なかった。`render` も同じ系統で、試していない。形は `eval` の数値と、STEP の中身で確かめる。
+
+**運用**: `plate*.json` のパラメーターや形を変えたら、`cad/check.sh` を走らせて、`cad/expected.csv` の値も手計算で直す（落ちたら CI が食い違いを全部出す）。
+スクリプトを足したら、`expected.csv` に 1 行足す（足さないと CI の対象にならない）。
 
 ### パラメーターを変える（パラメトリック設計）
 
@@ -64,7 +69,7 @@ AE-DRV8835-S・電池ボックス・ブレッドボードの置き場は、寸�
 
 質量は体積と一致、Izz は手計算と 4 桁で一致（差 0.004 %、円のメッシュ化の差と思われる【未確認】）。
 窓と穴の分だけ材料が外側に寄るので、直方体の近似は Izz を 3.4 % 低く見積もる。板が車体の慣性に占める割合は小さいが、**CAD → sim は、直方体の近似の代わりに CAD の出力を渡せる**。
-`physlearn.cad.mass_props` は Izz を直接持つ部品を受けないので、今は比べるだけにした（`src/` は触っていない）。URDF の書き出し（`file.export_urdf`）も動き、同じ板の `<inertial>` は mass 0.0385790、izz 7.48278e-5（STL のメッシュから積分した値で、上の厳密な値と 0.007 % 違う）。
+`physlearn.cad.mass_props` は Izz を直接持つ部品を受けないので、今は比べるだけにした。CAD の出力ファイルを SI で読む口は `physlearn.solidcraft_props`（`python -m physlearn.solidcraft_props mass.json`）。URDF の書き出し（`file.export_urdf`）も動き、同じ板の `<inertial>` は mass 0.0385790、izz 7.48278e-5（STL のメッシュから積分した値で、上の厳密な値と 0.007 % 違う）。
 
 
 ## 要件
