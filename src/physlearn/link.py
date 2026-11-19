@@ -92,6 +92,7 @@ class SerialPlant:
     def _next(self) -> Obs:
         """次のサンプル（機体座標・reset からの時刻）。timeout 秒来なければ例外。"""
         deadline = time.monotonic() + self.timeout
+        err = ""  # MCU が "# ERR ..." で原因を言っていれば、時間切れの文に添える
         while time.monotonic() < deadline:
             # MCU のウォッチドッグ (200 ms) より短い間隔で同じ指令を送り直す
             if time.monotonic() - self.sent_at > 0.05:
@@ -99,6 +100,8 @@ class SerialPlant:
             line = self.ser.readline()
             # timeout で途中まで読んだ行は最後の数が切れていても数として読めてしまう
             s = decode_sample(line) if line.endswith(b"\n") else None
+            if line.startswith(b"# ERR"):
+                err = "（MCU の最後の報告: " + line.decode("ascii", "replace").strip() + "）"
             if s is not None:
                 # MCU の再起動・millis の桁あふれで時刻が戻ると、step が t_target に届かず走り続ける
                 if s.t < self.last_mcu_t:
@@ -107,7 +110,7 @@ class SerialPlant:
                 a = self.rot @ (s.ax, s.ay, s.az)
                 g = self.rot @ (s.gx, s.gy, s.gz)
                 return Obs(s.t - self.t0, *a, *g)
-        raise TimeoutError(f"{self.timeout} 秒間 IMU のサンプルが来ない")
+        raise TimeoutError(f"{self.timeout} 秒間 IMU のサンプルが来ない{err}")
 
     def reset(self) -> Obs:
         try:

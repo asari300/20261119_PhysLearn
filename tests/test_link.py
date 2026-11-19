@@ -91,6 +91,13 @@ def test_timeout_sends_stop():
     assert b"M 0.500 0.500\n" in port.written
 
 
+def test_timeout_names_last_err_line():
+    port = FakePort([b"# ERR imu not found\n", b"# hello\n"])
+    with pytest.raises(TimeoutError, match="# ERR imu not found"):
+        with SerialPlant(ser=port, timeout=0.05) as p:
+            p.reset()
+
+
 def test_exception_in_caller_sends_stop():
     port = FakePort([sample(0), sample(10)])
     with pytest.raises(RuntimeError):
