@@ -63,7 +63,7 @@
 
 - **なぜ今か**: `cad.py` は「CAD が質量特性を出せるなら Izz を 1 つの部品として渡せばよい」と書くが、**渡す口が無い**（`part_izz` は箱・球・円柱だけ）。公式文書に、出力の形がある（3 節の事実 F6）。S042 が実際の出力を持ってくる。
 - **作るもの**:
-  - `src/physlearn/solidcraft_props.py`（新規、約 50 行）: SolidCraft の質量特性の JSON から `(質量 [kg], 重心 [m], Izz [kg m²])` を返す。`inertia_g_mm2` を 1e9 で割って kg m² にする（公式の式）。`null`（メッシュが閉じていない）なら例外。試験は、**S042 が実際に出した JSON**（無ければ公式文書の形に合わせた手書き）と、**箱の公式 `m(a²+b²)/12`** との突き合わせ（板 1 枚なら 1 % 以内、【推測】）。`cad.py` に繋ぐのは S041 の後に統括が 1 か所。
+  - `src/physlearn/solidcraft_props.py`（新規、約 50 行）: SolidCraft の質量特性の JSON から `(質量 [kg], 重心 [m], Izz [kg m²])` を返す。（第 1 巡の記述。実際の形と単位は第 2 巡 5.4 節を正とする: kg·mm² を 1e6 で割る。）`null`（メッシュが閉じていない）なら例外。試験は、**S042 が実際に出した JSON**（無ければ公式文書の形に合わせた手書き）と、**箱の公式 `m(a²+b²)/12`** との突き合わせ（板 1 枚なら 1 % 以内、【推測】）。`cad.py` に繋ぐのは S041 の後に統括が 1 か所。
   - `doc/cad-mcp.md`（新規）: 3 節の「MCP の最小の題材」の依頼文と、人が確かめる表。MCP の登録は発注者の設定の変更なので、**手順だけ書いて、設定ファイルは置かない**。
 - **ぶつかり**: `cad.py` は S041・S074 が触るので触らない。`cad/` は S042 の持ち分なので触らない。
 - **条件**: S042 が「CLI が WSL2 で動いた」と報告しなかったら、この件は明日に回し、代わりに N4 を厚くする。
@@ -117,7 +117,7 @@
 | F3 | MCP は 2 通り: 窓なし（`solidcraft-cli mcp [--in part.sc]`）と、**起動中のデスクトップ版に接続**（アプリの設定で "Let AI agents connect"、`--connect 127.0.0.1:7878`）。接続は 127.0.0.1 だけ、同じ PC の中だけ。**この頁はデスクトップ版の説明で、ブラウザー版には触れていない** | [docs]guide/mcp.html |
 | F4 | **ブラウザー版は MCP につながらない**（書いていない、というだけでなく別の仕組み）。ブラウザー版は、そのタブの `window.solidcraft`（JavaScript）で動かす。"does not register WebMCP tools or expose a network listener"。タブの JavaScript を実行できるエージェントなら同じ呼び出しができる。ファイルのパスはブラウザーの仮想ファイルシステム | [gh]docs/browser-api.md |
 | F5 | 設計の保存: `.sc`（バージョンつきの入れ物、または JSON）と、**`.json`（自己完結の平文 JSON）**。`.json` の名前で保存すれば JSON のまま保たれる。開くときは中身で形式を見分ける。Save As JSON はデスクトップにもウェブにもある | [gh]docs/book/src/guide/files.md |
-| F6 | 質量特性: 材料の密度つきで、質量・重心・`inertia_g_mm2`（全体の重心まわり、世界座標、g·mm²。kg·m² にするには 10⁹ で割る）・主慣性モーメント。丸い物体は標準の品質で約 0.1 %。メッシュが閉じていなければ `null` | [gh]docs/assembly-properties.md |
+| F6 | 質量特性: 材料の密度つきで、質量・重心・慣性テンソル。**公式文書（main の docs）は `inertia_g_mm2`（g·mm²、10⁹ で割る）と書くが、v0.44.1 の CLI が実際に返す JSON は別の形**だった（第 2 巡 17:50 に確認。5.4 節）: `groups[].mass.{mass_kg, center_of_mass_mm, inertia_world_kg_mm2}`、単位は **kg·mm²（10⁶ で割る）**。丸い物体は標準の品質で約 0.1 %。メッシュが閉じていなければ `null` | [gh]docs/assembly-properties.md、実測 |
 | F7 | Linux 版は v0.44.1 に tar.gz（180 MB）・AppImage・deb・rpm・snap・flatpak がある。単体の CLI の zip は macOS だけ。Linux で `solidcraft-cli` がどのパッケージのどこに入っているかは【未確認】（S042 が確かめる） | GitHub API releases/tags/v0.44.1 |
 | F8 | 版: v0.44.1 が最新の正式版（2026-11-17）。毎日 nightly（今日 05:41Z に v0.45.0-nightly）が出る。README は "Early but usable for simple parts" | GitHub API、[gh]README.md |
 | F9 | ブラウザー版は `?open=<エンコードした HTTPS の URL>` で設計を開ける。`raw.githubusercontent.com` は `access-control-allow-origin: *` を返す（17:38 に `curl -I`）ので、ブラウザーの制約には掛からないはず。**SolidCraft がその URL を受け付けるかは【未確認】** | [docs]guide/getting-started.html |
@@ -193,3 +193,174 @@
 - MCP ツール名 `mcp__solidcraft__*` の形（Claude Code の規則からの推測）。
 - `firmware/` を S047 が触るかどうか（S047 に聞く）。
 - 所要時間（20〜30 分）はすべて推測。
+
+---
+
+# 第 2 巡（JST 17:45〜18:15）
+
+第 1 巡の採否（統括）: 0 節は履歴の書き換えで進む（N1 は統括が済ませた。`doc/publishing.md` は不要）。N3 は S039 の `ci.yml` に入った。N2・N4・N5 は採用。番号は統括が予約する。この文書では仮に **S081 hwcheck、S082 troubleshooting、S083 solidcraft-props** と呼ぶ。
+S042 が main に入った（CLI は WSL2 で動いた）ので、N5 の「CLI が動いた場合」は現実になった。両方を書く。
+
+## 5. 依頼文（そのまま渡せる形）
+
+### 5.1 3 本に共通の決まり
+
+昼の outlook.md の 12.0 の「決まり」をそのまま貼る。加えて次を貼る。
+
+- 触ってよいのは依頼文に列挙したファイルだけ。S041 が `src/physlearn/` の `sim.py`・`sysid.py`・`control.py`・`link.py`・`randomize.py`・`cad.py`・`__init__.py` を、S070〜S077 が `README.md`・教材の全章・索引・計画・解答集・図・`doc/bringup.md`・`doc/setup.md` を触る。**これらは読むだけ**。
+- `README.md`・`doc/README.md`・`doc/textbook/README.md`・`doc/bringup.md`・`cad.py`・`pyproject.toml` に 1 行足したいときは、**直さずに作業記録の「統括が最後に足す」の節に、足す場所と文面を書く**。
+- 今の main の最新を `git -C <main> log --oneline -10` で確かめてから始める。S047 が 03・09 章の電流・電圧の記述を直した（DRV8835 は 1 ch 連続 1.5 A、3V3 のレギュレーターは 250 mA、秋月の説明書でピン表が読めた）。古い記憶で書かない。
+- 実機では何も確かめていない。合格基準は、出どころ（スケッチの定数、データシート、`randomize.SPREAD`）を書き、根拠の無いものは「目安（根拠なし）」と書く（bringup と同じ流儀）。
+
+### 5.2 S081 `hwcheck`（1 体、25〜30 分、新規ファイルだけ）
+
+> あなたはセッション S081 (hwcheck) の担当。PhysLearn（XIAO と IMU の 2 輪車で Sim2Real と Real2Sim を学ぶ教材とコード）に、**実機が届いた日の最初の 30 分を機械にする道具** `python -m physlearn.hwcheck` を足す。`doc/bringup.md` の段 1〜3（`I` 行が流れる、1 秒 100 行、静止の値、軸の向き）は今は人が `picocom` と CSV を目で見て確かめる。軸の符号は、間違えても動いてしまい、以後の同定が静かに狂うので、特に機械にしたい。
+>
+> **場所と決まり**: worktree `.git-worktree/s081-hwcheck`、ブランチ `feature/s081-hwcheck`（`/start-session`）。共通の決まりは 5.1。
+>
+> **先に読む**: `CLAUDE.md`、`doc/bringup.md` の段 1〜3 と「止め方」、`doc/textbook/03-hardware-firmware.md` の 3.5〜3.7、`doc/protocol.md`、`src/physlearn/link.py`（`decode_sample`・`parse_axes`・`SerialPlant`）、`src/physlearn/imu.py`（`stats`・`yaw_deg`）、`src/physlearn/fakexiao.py`、`tests/test_fakexiao.py`（偽の XIAO を試験で使う型）、`src/physlearn/log.py`。
+>
+> **触ってよいファイル**: `src/physlearn/hwcheck.py`（新規、約 150 行）、`tests/test_hwcheck.py`（新規）、`log/work/2026-11-19-s081-hwcheck.md`。
+> **触らないファイル**: 5.1 の一覧。`link.py`・`imu.py`・`fakexiao.py` は**読むだけ、import して使うだけ**。名前が変わっていたら止めて報告する。`__init__.py` と `pyproject.toml` に登録しない（`python -m physlearn.hwcheck` で呼ぶ）。
+>
+> **やること**
+> 1. **`check_stream(log) -> list[Check]`**。`log` は `log.as_log` が返す列の辞書（`t,ax,ay,az,gx,gy,gz`）。`Check` は (項目, 合否 `"ok"|"ng"|"目安"`, 実測, 基準, 基準の出どころ, 外れたときの次の手) の 6 つ。項目:
+>    - 行数/秒: `imu.stats` の `dt_mean` から。基準 100 Hz ±5 %（スケッチの `PERIOD_US = 10000`）。
+>    - 欠けた行: `diff(t) > 1.5 × 0.01` の数。基準 0 件（根拠なし。「目安」）。`# ERR` の行は `SerialPlant` が読み捨てるので数えない（その旨を結果の注に書く）。
+>    - 静止の重力: `|a|` の平均と `G = 9.80665` の差。基準 ±0.5 m/s²（bringup 段 2 の「目安（根拠なし）」と同じ印）。
+>    - `gz` の平均（バイアス）: 基準 |平均| ≤ 0.02 rad/s（`randomize.SPREAD["gyro_bias"]` を **import して**使う。数を二重に書かない）。
+>    - `gz` の標準偏差: 基準なし。0.01 rad/s 前後（sim の公称 `gyro_noise`、`sim.Params` から）と並べて表示するだけ（合否なし）。
+>    外れたときの次の手は bringup の該当の段への案内（例「bringup 段 1: 書き込みをやり直す」）。**段の番号は S075 が直すかもしれないので、文字は「bringup の『XIAO 単体』の段」のように見出しの語で書く**。
+> 2. **`axes_from_poses(rest, nose_up, left_up) -> AxesResult`**。引数は各姿勢で静止させたときの基板の加速度 (ax, ay, az) の平均（3 要素）と、そのときの `|gyro|` の平均と `|a|` の標準偏差。
+>    - **式**: 機体座標への回転を R（`link.parse_axes` が返す 3×3、`v_body = R @ v_board`）とする。姿勢 k では機体の軸 k が真上を向くので、`R @ a_board = g·e_k`。したがって、基板の加速度 `a_board` の絶対値が最大の成分が j、その符号が s なら、`R[k, j] = s`（他の列は 0）。つまり軸の文字列の k 番目の語は `s` と `"xyz"[j]`。姿勢は rest = 水平（機体 z が上、k = z）、nose_up = 鼻を真上（k = x）、left_up = 左側を真上（k = y）。
+>    - **断る条件**（どれも `AxesResult(ok=False, 理由, 次の手)` を返し、**文字列を作らない**）: (i) `|a|` が G の ±15 % の外（動いている、または単位が違う）、(ii) 姿勢中の `|a|` の標準偏差が 0.3 m/s² 超か、`|gyro|` の平均が 0.1 rad/s 超（手で持って揺れている）、(iii) **重力がどの軸にも乗り切らない**: `max|a_j| / |a| < 0.94`（真上から約 20° 以上ずれている。0.94 は cos 20° で、根拠は「目安（根拠なし）」と書く）、(iv) 3 姿勢で選ばれた基板の軸が重なる（置換になっていない）、(v) 組み立てた R の行列式が −1（鏡映。**IMU のチップの軸は右手系なので、実機で鏡映になるのは姿勢の取り違え、たいていは左右の取り違え**。その旨を理由に書く）。
+>    - ok のときは `spec`（`"y,-x,z"` の形）を返し、`link.parse_axes(spec)` が通ることを確かめてから返す。`R` の外積による検算（`R[z] == R[x] × R[y]`）も行う。
+> 3. **対話のコマンド**: `python -m physlearn.hwcheck stream --port P [--seconds 5] [--axes x,y,z]`（`SerialPlant` で読み、`check_stream` の表を出す。終了コードは 1 つでも ng があれば 1）。`python -m physlearn.hwcheck axes --port P`（「水平に置いて Enter」「鼻を真上に立てて Enter」「左側を真上に立てて Enter」と促し、各 2 秒読む。断られたら**同じ姿勢をやり直させる**。ok なら `--axes <spec>` を表示し、続けて「上から見て反時計回りに机の上で約 90° 手で回して Enter」と促し、`imu.yaw_deg` に R を掛けた gz を積分して符号が正（+30° 以上）かを示す。負なら「ジャイロの符号が合わない。基板の軸の読み違い」）。**モーターは動かさない**（`SerialPlant` に指令は `S`/`M 0 0` しか送らない）。
+> 4. **試験**（速いものだけ）: (a) 偽の XIAO（`FakeXiao`、`tests/test_fakexiao.py` の `fake_factory` と同じ型）を相手に `check_stream` が全部 ok。偽物の `--speed` を落とす（または `PERIOD_MS` が変わった偽物）と行数/秒が ng。 (b) `axes_from_poses`: **右手系の 24 通りの符号つき置換**すべてについて、`R[k,:]·g` から合成した 3 姿勢（雑音 0.05 m/s²）が元の `spec` に戻る。 (c) 断る 5 条件を 1 つずつ（傾き 30°、動き、重なり、左右を入れ替えた鏡映、`|a|` = 5）。 (d) `FakeXiao(axes="y,-x,z")` の**水平の姿勢だけ**が R の z の行を当てる（偽の XIAO は重力の向きを変えられない。鼻上げ・左上げは合成の値で試す、と試験の docstring に書く）。
+>
+> **受け入れ条件**: `uv run pytest tests/test_hwcheck.py` が通り、全体の `uv run pytest` も通る。24 通りが全部戻る。断る 5 条件が全部断る。`uv run python -m physlearn.hwcheck stream --help` と `axes --help` が出る。
+> **確かめ方**: 偽の XIAO（`uv run python -m physlearn.fakexiao` で出る `/dev/pts/N`）に `stream --port /dev/pts/N --seconds 3` をつないで、表を作業記録に貼る。
+> **終わりに**: 作業記録（検証の数字、「統括が最後に足す」の節）。**S075（bringup を直す担当）への申し送り**として、作業記録に次を書く: 「段 1 の『`I` 行が流れる』の次に `python -m physlearn.hwcheck stream --port ...` を足す。段 2 の『静止ログ』は `stream` の結果で置き換えられる。段 3 の『軸の向き』は `python -m physlearn.hwcheck axes --port ...` で `--axes` の文字列が出る（4 つの確かめのうち、水平・鼻上げ・左上げ・反時計回りの 4 つを対話で行う）。実機では未確認。」所要 25〜30 分（推測）。収まらなければ 3 の `axes` の対話の「回して確かめる」の部分を残して止め、そう書く。
+
+### 5.3 S082 `troubleshooting`（1 体、20 分、新規ファイル 1 本）
+
+> あなたはセッション S082 (troubleshooting) の担当。部品が届いた日に、学ぶ人が「症状 → 原因 → 確かめ方 → 次の手」で探せる一覧 `doc/troubleshooting.md` を作る。**新しい事実は書かない**。今ある文書とコードのエラー文から拾って並べるだけ。
+>
+> **場所と決まり**: worktree `.git-worktree/s082-troubleshooting`、ブランチ `feature/s082-troubleshooting`。共通の決まりは 5.1。
+>
+> **先に読む**: `doc/bringup.md`（各段の「外れたら」）、`doc/textbook/03-hardware-firmware.md`、`09-safety.md`、`12-fake-xiao.md`、`doc/setup.md`、`doc/protocol.md`、`doc/research/2026-11-19-hardware.md`、`log/review/2026-11-19-s036-audit3-claude.md` と `log/work/2026-11-19-s047-audit3-fix.md`（電流・電圧の最新の値）。エラー文は `grep -rn 'raise \|SystemExit\|p.error\|# ERR\|print(.*警告\|TimeoutError' src/physlearn firmware` で拾う。
+>
+> **触ってよいファイル**: `doc/troubleshooting.md`（新規）、`log/work/2026-11-19-s082-troubleshooting.md`。**`doc/README.md` への 1 行（表に「troubleshooting.md: つまずき集」）は統括が最後に足す**（作業記録に文面を書く）。
+>
+> **やること**
+> 1. 表を段ごとに作る: 書き込み（ブートローダー、FQBN、`adafruit-nrfutil`）、USB（usbipd、`/dev/ttyACM0` が出ない、権限）、IMU（`I` 行が出ない、`# ERR imu not found`、0x6A/0x6B、軸の向き）、モーター（逆に回る、回らない、デッドバンド、熱い）、安全（ウォッチドッグで止まる、`SafetyGate` の作動、`|gz| > 15`）、同定（`drift`、時定数が範囲外、ばらつきの外）、閉ループ（`仕様 NG`、振動）、PC 側（`uv sync`、`mujoco` の extra、`pty` が無い）。**20〜30 行**。
+> 2. 各行: 症状（画面に出る文字そのままを `コード書式` で）／考えられる原因（**出どころのファイルと節を文字で**。例「03 章 3.4」）／確かめ方（実際のコマンド）／次の手／**実機で確かめたか**（全部「いいえ（机上）」。偽の XIAO で再現できたものは「偽の XIAO で再現」）。
+> 3. 見出しへのリンク（`#anchor`）は使わない。S070〜S077 が見出しを直すかもしれないので、**ファイル名と節の番号を文字で書く**。ファイルへの相対リンクだけは付ける。
+> 4. 最後に「それでも分からないとき」の節: 止め方（bringup の「止め方」の 3 つを要約。電池ボックスのスイッチに手が届くこと）、作業記録に何を書いておくと後で読めるか（`log/work/` の雛形）。
+>
+> **受け入れ条件**: (1) 症状の欄の画面の文字列は、すべて `src/physlearn`・`firmware` に**そのまま**ある（`grep -F` で全部 1 件以上。作業記録に件数を書く）。(2) 相対リンクがすべて存在するファイルを指す（使い捨ての確認スクリプトをスクラッチ領域で走らせ、結果を記録。コミットしない）。(3) 電流・電圧の数字は S047 の値（DRV8835 は 1 ch 連続 1.5 A、3V3 は 250 mA）と食い違わない。 (4) 新しい断定がない（原因の欄はすべて出どころつき。無いものは【推測】）。
+> **確かめ方**: 偽の XIAO で再現できるもの 3 つ以上（例: `# ERR bad line`、時間切れ、ウォッチドッグ）を実際に起こして、出る文字を表と照合する。
+> **終わりに**: 作業記録に「統括が最後に足す」（`doc/README.md` の 1 行）。所要 20 分（推測）。
+
+### 5.4 S083 `solidcraft-props`（1 体、30 分、新規ファイルが中心）
+
+> あなたはセッション S083 (solidcraft-props) の担当。SolidCraft が出す質量特性（質量・重心・慣性）を `physlearn` の言葉（kg・m・kg m²、機体座標 z 上のヨーの慣性 Izz）に読み替える口と、**Claude が MCP で設計するときの依頼文と人の確かめ方**の文書を作る。`cad.py` は Izz を直接持つ部品を受けない（S042 の積み残し）ので、`cad.py` を触らずに、受け手を別のモジュールに作る。
+>
+> **場所と決まり**: worktree `.git-worktree/s083-solidcraft-props`、ブランチ `feature/s083-solidcraft-props`。共通の決まりは 5.1。
+>
+> **先に読む**: `CLAUDE.md`、`cad/README.md`、`cad/plate_mount.json`、`cad/plate_mass.json`、`log/work/2026-11-19-s042-solidcraft-run.md`、`doc/research/2026-11-19-solidcraft.md`（S042 が追記した節）、`doc/textbook/16-enclosure.md` の 3・4 節、`src/physlearn/cad.py`（`mass_props` の `(質量, 重心, 重心まわりの Izz)` の返し方と平行軸の合成）、`doc/plan/2026-11-19-outlook-evening.md` の 3 節と 6 節（この文書）。
+>
+> **触ってよいファイル**: `src/physlearn/solidcraft_props.py`（新規、約 80 行）、`tests/test_solidcraft_props.py`（新規）、`tests/data/solidcraft_mass_plate_mount.json`（新規。CLI の実出力）、`doc/cad-mcp.md`（新規）、`log/work/2026-11-19-s083-solidcraft-props.md`。
+> **触らないファイル**: `cad.py`（S041・S074 が触る）、`cad/` の全部（S042 の持ち分。足したい設計は作業記録に書く）、`.claude/`・`.mcp.json`（**許可リストと MCP の登録は発注者が決めること。設定は変えない**）、5.1 の一覧。
+>
+> **実際の出力の形**（v0.44.1 の CLI、JST 17:50 に走らせて確かめた）:
+> ```bash
+> solidcraft-cli run cad/plate_mount.json --save pm.sc
+> solidcraft-cli run cad/plate_mass.json --in pm.sc --results --json-out mass.json
+> ```
+> `mass.json` は**リスト**で、`[0]["groups"][i]["mass"]` に `mass_kg`、`center_of_mass_mm`（x,y,z）、`inertia_world_kg_mm2`（3×3、**単位は kg·mm²**）、`inertia_local_kg_mm2`。板（`plate_mount`）の値: `mass_kg` 0.03857785113936533、`center_of_mass_mm` = (≈0, ≈0, 1.5)、`inertia_world_kg_mm2[2][2]` = 74.82637350671482。**公式文書（main）の `inertia_g_mm2`（g·mm²）とは名前も単位も違う**。版が上がると変わりうるので、版を固定し、読み取りは**実際の形で書き、見つからなければ名前を出して例外にする**。
+>
+> **やること**
+> 1. **`CLI が動いた場合`（今の状態）**
+>    - `solidcraft_props.py`: `MassProps(mass_kg, com_m, inertia_kgm2)`（com は m、慣性は kg m² の 3×3）。`load(path_or_obj)` が上の形を読む（`groups` が 2 つ以上なら、全体の合成を平行軸で自分で出すのではなく**例外にして「`groups` を 1 つにするか `combine` を使う」と言う**）。換算は `kg·mm² × 1e-6 = kg·m²`、`mm × 1e-3 = m`。`izz` は `inertia[2][2]`（世界座標で z 上のとき鉛直軸まわり）。`combine(parts: list[MassProps]) -> MassProps` は、質量で重みづけた重心と、`Σ(I_i + m_i·(d_i² 1 − d_i d_iᵀ))`（3×3 の平行軸の定理）。`yaw_inertia_about(p, x, y)`（鉛直軸を (x, y) に移したときの Izz）。**CAD の座標が機体座標（x 前・y 左・z 上、原点は車軸の中点）であることは呼び出す側の約束**で、`load` は黙って信じない: 引数 `expect_z_up=True` のとき、慣性の対角が正で、非対角が対角の 1e-3 倍以内（板のように軸に揃った物）でないと警告を返す。
+>    - 試験: (a) `tests/data/` の実出力（3 KB 程度に刈ってよい）で `mass_kg`・`izz` が上の数字に一致（相対 1e-9）。 (b) 直方体の公式 `m(a²+b²)/12`（`cad.part_izz("box", ...)` を呼ぶ）と、一様な板の合成値が一致（SolidCraft で別の板を作れば 1 % 以内、作らなければ `combine` の自己検算だけ）。 (c) `combine` が 2 枚の板を並べた値を、片側にずらした 1 枚の `part_izz` + 平行軸と 1e-9 で一致。 (d) `null` を含む入力・キーが無い入力・単位の取り違え（`inertia_g_mm2` という旧い名前）で、分かる文で例外。
+> 2. **`CLI が動かなかった場合`（別の PC や版が変わったとき。試験は (c)(d) だけ、(a)(b) は手書きの値）**: ブラウザー版の Inspect → Measure → Properties の窓にある **Copy matrix**（公式: 3 行のタブ区切りで、表示の単位のまま）をクリップボードから貼って読む `from_clipboard(text, mass_g, com_mm, unit)`（`unit` は `"g mm2"` か `"kg mm2"` を**引数で必ず指定**。既定を持たない）。この口は CLI が動くときも、ブラウザーの数字と CLI の数字を突き合わせるのに使う。
+> 3. **`doc/cad-mcp.md`**（新規。次の 6 節を持つ）:
+>    - (a) 経路 R1（この文書の 3.2 節）の手順。設計の正は **設計 JSON（`Save As JSON`）**、スクリプトは種（第 2 巡 6.3）。
+>    - (b) MCP の登録の仕方（`claude mcp add solidcraft -- solidcraft-cli mcp`、公式 README の 1 行）。**設定は変えない。発注者が決める**と明記。CLI の置き場所は S042 の文書にある 3 案。
+>    - (c) **発注者への提案**として、許可リストに入れてよい読み取り系のツール（`list_commands`・`describe_command`・`inspect_design`・`measure`・`body_topology`・`version`・`screenshot`）と、入れない書き込み系（`execute`・`batch`・`set_parameter`・`open`・`save`・`new_design`・`export`・`undo`・`redo`）。ツール名の出どころは公式の MCP の頁（17:46 取得）。Claude Code の許可の書式（`mcp__solidcraft__<tool>`）は【未確認】と書く。`--allow-any-path` は付けない。
+>    - (d) 題材「XIAO の基板の中心を旋回中心の真上に置く取り付け板」の**依頼文の雛形**（座標は x 前・y 左・z 上・原点は車軸の中点・単位 mm、材料と密度を**明示**（指定しないと既定の材料の密度が使われる）、パラメーター名、穴は開けない／`TBD_` の穴は仮、書き出しは設計 JSON と質量特性）。`cad/plate_mount.json` を出発点にする。
+>    - (e) 人が確かめる表（第 1 巡 3.4 の 7 項目に、**CLI の質量と Properties の質量が一致するか**を足す）。
+>    - (f) `solidcraft_props` の使い方（試験で通った例だけ）。
+>
+> **受け入れ条件**: `uv run pytest` が全部通る。実出力から Izz = 7.4826e-5 kg m² が出る（S042 の記録 7.48264e-5 と 1e-5 以内）。`doc/cad-mcp.md` のコマンドは、書いたものを**実際に走らせた**（CLI のパスは S042 の置き場、またはこのセッションで落とし直した場所）。走らせていないものは【未実行】。
+> **確かめ方**: 実出力を `load` に通す。`cad/plate_mount.json` のパラメーターを変えた設計（S042 の README の方法）でも質量が合理的に動く（板厚 3 → 4 mm で質量が 4/3 倍）ことを 1 回。
+> **終わりに**: 作業記録の「統括が最後に足す」に、(1) `cad.py` の `mass_props` が `MassProps` を部品として受ける 1 か所（S041・S074 の後）、(2) `doc/README.md` に `cad-mcp.md` の 1 行、(3) `cad/README.md` の「正本」の記述の直し（6.3 の推薦を採るなら）。所要 30 分（推測）。収まらなければ 2 と 3(b)〜(f) の一部を残す。
+
+## 6. SolidCraft のブラウザー版の裏取り（1 段深く）
+
+取得は 17:39〜17:50。【未実行】は自分で動かしていないもの。ブラウザー版は一度も開いていない（この環境にブラウザーの操作手段が無い）。
+
+### 6.1 結論の原文
+
+結論: **公式の文書は、`solidcraft-cli mcp` をブラウザー版につなぐ方法を書いていない。ブラウザー版を外から動かす口は、そのタブの `window.solidcraft`（JavaScript）だけ。** 「つながらない」と明記した文はなく、下の 2 つの記述から読み取れる結論（私の推測）。
+
+| 文 | 出典と取得 |
+|---|---|
+| "An agent with JavaScript evaluation access to this tab can make the same calls. The API does not register WebMCP tools or expose a network listener." | https://raw.githubusercontent.com/tangency-labs/solidcraft/main/docs/browser-api.md 、17:39 取得 |
+| "Bridged, the server finds the app's control token in the token file the app wrote for that port" | https://docs.solidcraft.io/guide/mcp.html 、17:46 取得（HTML から本文を取り出した） |
+| "Bridged screenshots are written to a temporary file by the app and read back by the server, so both must run on the same machine." | 同上 |
+| 接続の起動: `solidcraft --control 7878 &` のあと `solidcraft-cli mcp --connect 127.0.0.1:7878`。アプリの設定は "Preferences › AI › Agents through MCP" | 同上 |
+
+つまり MCP の「アプリ」は、**制御の口（ポートとトークンのファイル）を開くデスクトップ版**。ブラウザーのタブはファイルも待ち受けのポートも作れない。`mcp.html` に "browser" が出る箇所は、すべて `browser.visibility` などのコマンド名か画面の「Browser（部品の木）」の意味で、ブラウザー版のことではない（本文を全文で調べた）。
+
+### 6.2 ブラウザー版で読み込む・書き出す操作（公式の文書にある範囲）
+
+| 操作 | 文書の記述 | 出典 |
+|---|---|---|
+| 開く | File → Open（Chrome・Edge・Opera はブラウザーの開くダイアログ）。URL から: `?open=<エンコードした HTTPS の URL>` は "a hosted `.sc` design" を未保存の写しとして開く。ホストは CORS を許す必要がある | guide/files.md「Saving in the web app」、getting-started.md「Design links and embeds」 |
+| 形式の見分け | 開くときは中身で形式を見分ける。`.json`（自己完結の平文 JSON）と `.sc` のどちらも読み書きする | files.md |
+| 保存 | Chromium 系: Save As が実ファイルを選んだフォルダーに書く（`.sc`）。**Save As JSON は File メニューにデスクトップにもウェブにもある**。Firefox・Safari: ブラウザー内の保管のみ。どのブラウザーでも File → Download design で書き出せる | files.md |
+| コマンド列（スクリプト）を読み込む | **画面の操作としては書かれていない**（`ui-tour.md` に該当なし）。`solidcraft.execute(command, params)` を JavaScript のコンソールから呼ぶ道だけ | browser-api.md |
+| 設計をコマンド列にする | `timeline.export_script`（"In the app and over MCP"）。画面のどの項目かは【未確認】。CLI の `solidcraft-cli script design --out repro.json` も同じものを出す。ただし**外観・フォルダー・名前つき視点・構成が落ち、部品（component）や関節のある設計は未対応** | getting-started.md |
+
+17:50 に CLI で確かめたこと（ブラウザーでは未実行）: `plate_mount.json`（22 行のスクリプト）を `run --save pm.sc` → `file.save_as {format: "json"}` で設計 JSON（505 行、`"format": "solidcraft/58"`）→ `solidcraft-cli script pm.design.json --out repro.json`（12 ステップ、533 行）→ `eval` の体積 31111.170273681717 mm³・質量 38.57785113936533 g が元と一致。同じ `.sc` から設計 JSON を 2 回保存するとバイトで同一。`.sc` から作ったスクリプトと設計 JSON から作ったスクリプトは、設計名の 1 行（`"design": "pm"` と `"pm.design"`）だけが違う。
+
+### 6.3 `cad/` に置く「正」の形式の推薦
+
+| | 手書きのスクリプト `.json`（今の `plate_mount.json`） | 設計 `.json`（Save As JSON） | `.sc` |
+|---|---|---|---|
+| 行数・差分 | 22 行。読める | 505 行。パラメーターが先頭に名前つきで並び、読めるが長い | zip。読めない（11.8 KB） |
+| ブラウザー版で開く | 画面の操作は無い（JS だけ） | File → Open。`?open=` は `.sc` と書いてある。`.json` が通るかは【未確認】 | File → Open、`?open=` |
+| CLI | `run` | `run --in`、`script`、`eval`（確かめた） | 同じ |
+| MCP | `execute`/`batch` で流せる | `open`/`save`（`.json` の名前で保存すれば JSON のまま、files.md） | 同じ |
+| GUI で直した結果が戻るか | **戻らない**（設計 → スクリプトは外観・構成などが落ち、部品や関節は未対応） | 戻る | 戻る |
+| 決定性 | 決定的（手書き） | 同じ入力から 2 回保存してバイト同一 | 【未確認】 |
+
+**推薦（推測を含む）: 正本は設計 JSON**（`cad/<名前>.design.json`）。理由は 1 つに絞れる: **人がブラウザーで直した結果を、失わずにリポジトリに戻せる形式が、これだけ**だから（上の行「GUI で直した結果が戻るか」。出どころは getting-started.md の「落ちるもの」の記述）。手書きのスクリプト（今の `plate_mount.json`）は、**ゼロから作る種**として残す（`cad/README.md` の「設計の正本」という記述は、S042 が書いたもの。統括が採否を決める。直す場合の文面は S083 の作業記録に出る）。`.sc` はコミットしない（今の方針どおり）。版は `"format": "solidcraft/58"` に出るので、CI でその版が期待と違えば警告にできる【推測】。
+
+### 6.4 発注者がブラウザー版で最初にやる 5 手順（公式の文書の操作だけ。【未実行】）
+
+1. **Chrome か Edge で https://docs.solidcraft.io/app/ を開く。** Chromium 系なら Save がフォルダーの実ファイルに書く。Firefox・Safari は保管がブラウザー内だけ（files.md）。
+2. **開始画面の "Sample Plate" をクリックして、画面の読み方を見る**（`?sample` でも開く。getting-started.md）。
+3. **新しい設計で板を 1 枚作る**: New Sketch → Top（XY）の平面 → Rectangle で 1 点目を原点に置いて辺を打つ（例 `120`、Tab、`90`）→ Finish Sketch → Extrude（sketching.md「Step by step」）。寸法の欄には `plate_w = 120` のように名前を付けて入れると、後から数字を変えても作り直される（design-approach.md）。
+4. **Inspect → Measure → Properties を開き、質量・重心・慣性を読む。** 材料を指定しないと既定の材料の密度が使われる（assembly-properties.md）ので、先に材料を決める。材料を指定する画面の操作は文書の該当の頁を読んでいない【未確認】。
+5. **File → Save As JSON で `.json` に保存する**（Chromium なら保存先に WSL のフォルダーを選べるかは【未確認】。選べなければ File → Download design で落としてから置く）。置いた設計に対して `solidcraft-cli run cad/plate_mass.json --in <その設計.json> --results --json-out mass.json` を走らせ、CLI の質量が手順 4 の画面の数字と一致するかを見る。
+
+この 5 手順で、ブラウザー版 → ファイル → CLI の最初の往復が確かめられる。MCP は、そのあと R1 の「Claude が窓なしで同じファイルを開く」で足す。
+
+## 7. 明日の最初の 1 時間（案）
+
+1. 最初の 10 分: 公開後の CI（`test`・`firmware`・`firmware-mg24`）の結果を見て、赤なら直す。MG24 の結果が、次点を選ぶ材料になる。
+2. 次の 10 分: 部品の在庫と価格を取り直し（秋月・スイッチサイエンス）、発注者に BOM (A)/(B) の判断を仰ぐ。nRF52840 が無ければ MG24 の CI 結果を添える。
+3. 次の 15 分: 発注者のブラウザー版の 5 手順（6.4）。設計 JSON が 1 本できれば、S083 の `solidcraft_props` で CLI と画面の質量を突き合わせる。
+4. 次の 15 分: S081 の `hwcheck` と S082 のつまずき集の取り込み。S078（sim-checks）・S079（fake-vs-sketch）を起動。
+5. 最後の 10 分: 実機が届く前の持ち物の確認（テスター・ノギス・秤・結束バンド。bringup の段 0・4・5 が要る）と、`doc/bringup.md` の【未確認】を消す順の最終確認。
+
+## 確かめていないこと（第 2 巡）
+
+- ブラウザー版そのものの操作（開いていない）。`?open=` に `.json` の設計や GitHub の raw URL が通るか。Chromium の Save As で WSL のフォルダーを選べるか。材料を指定する画面。`timeline.export_script` の画面上の項目。
+- `solidcraft-cli mcp` の実際のツール一覧（公式の頁の記述のみ。自分では MCP を起動していない）。
+- Claude Code の許可リストでの MCP ツールの書式（`mcp__solidcraft__<tool>`）。
+- `script` の出力の「落ちるもの」が、`plate_mount` の設計でどう出たか（12 ステップ、体積と質量は一致したが、落ちた項目の一覧は見ていない）。
+- 所要時間は推測。
