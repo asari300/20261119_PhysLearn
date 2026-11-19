@@ -23,3 +23,23 @@ def test_steady_yaw_rate_matches_model():
     for _ in range(200):
         s.step(Command(-0.5, 0.5), 0.01)
     assert abs(s.yaw_rate - p.yaw_gain() * (0.5 - p.deadband)) < 1e-6
+
+
+def test_sim_log_tells_on_stderr_when_the_gate_trips(capsys):
+    from physlearn import sim_log
+    from physlearn.api import Obs
+    from physlearn.sim import SimPlant
+
+    class Wild:  # gz が常に限界を超える Plant
+        def reset(self):
+            return self.step(None, 0.01)
+
+        def step(self, cmd, dt):
+            return Obs(0.0, 0.0, 0.0, 9.8, 0.0, 0.0, 100.0)
+
+    rows = sim_log(Wild())
+    cap = capsys.readouterr()
+    assert cap.out == "" and cap.err.count("安全ゲートが作動した") == 1 and "|gz| >" in cap.err and "指令は 0" in cap.err
+    assert all(r[-2:] == [0.0, 0.0] for r in rows)
+    sim_log(SimPlant())
+    assert capsys.readouterr().err == ""  # ふつうの実行では何も出ない

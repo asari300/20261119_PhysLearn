@@ -25,3 +25,11 @@ def test_hard_plant_by_name_and_loop():
     assert "hard" in PLANTS and isinstance(make_plant("hard"), HardPlant)
     out = loop_demo(n=10, real="hard")  # 1 周が動く（通るかは問わない。式の外の現象があるので）
     assert set(out) == {"前 (公称の sim)", "後 (同定した sim)"}
+
+
+def test_python_dash_m_physlearn_runs():
+    import subprocess
+    import sys
+
+    r = subprocess.run([sys.executable, "-m", "physlearn", "-h"], capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0 and "loop-demo" in r.stdout

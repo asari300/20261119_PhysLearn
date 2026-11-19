@@ -18,9 +18,8 @@ import argparse
 import time
 
 import numpy as np
-import serial
 
-from physlearn.link import BAUD, G, STOP, decode_sample, parse_axes
+from physlearn.link import G, STOP, decode_sample, open_port, parse_axes
 
 PERIOD_MS = 10  # スケッチの PERIOD_US = 10000
 GYRO_FS = 20.0  # rad/s。ジャイロ ±1000 dps の int16 満スケール（doc/protocol.md）
@@ -46,6 +45,12 @@ def read(ser, seconds):
         else:
             rows.append((round(s.t * 1000), time.monotonic(), s.ax, s.ay, s.az, s.gx, s.gy, s.gz))
     return np.array(rows).reshape(-1, 8), notes, bad
+
+
+def last_err(notes):
+    """届いている `# ERR` の行（重複を除いて最大 3 本）を、時間切れの文に添える形で返す。無ければ空。"""
+    err = sorted({n for n in notes if n.startswith("# ERR")})[:3]
+    return "（MCU の報告: " + " / ".join(err) + "）" if err else ""
 
 
 def stream_checks(d, notes, bad):
@@ -112,12 +117,12 @@ def main(argv=None) -> int:
     secs = a.seconds if a.seconds is not None else {"stream": 5.0, "axes": 2.0}[a.mode]
     if not 0 < secs <= 600:
         p.error("--seconds は 0〜600")
-    with serial.Serial(a.port, BAUD, timeout=0.05) as ser:
+    with open_port(p, a.port, timeout=0.05) as ser:
         ser.write(STOP)  # 念のため。この道具はこれ以外を送らない
         if a.mode == "stream":
             d, notes, bad = read(ser, secs)
             if len(d) < 10:
-                print(f"NG  サンプルが {len(d)} 個しか来ない（{secs} 秒）。ポート・ファーム・IMU を確かめて")
+                print(f"NG  サンプルが {len(d)} 個しか来ない（{secs} 秒）。ポート・ファーム・IMU を確かめて{last_err(notes)}")
                 return 1
             checks = stream_checks(d, notes, bad)
             print(f"サンプル {len(d)} 個 / {secs} 秒、`#` 行 {len(notes)} 本、壊れた行 {bad} 本")
@@ -129,12 +134,13 @@ def main(argv=None) -> int:
             while True:
                 print(f"姿勢 {k}/3: 車体を{name}（機体 {up} が上）。{secs:g} 秒じっと動かさない", flush=True)
                 input("  置いたら Enter > ") if not a.no_prompt else time.sleep(a.settle)
+                d, notes, _ = read(ser, secs)
                 try:
-                    poses.append(gravity_axis(read(ser, secs)[0][:, 2:5]))
+                    poses.append(gravity_axis(d[:, 2:5]))
                     print(f"  重力は基板の {'+-'[poses[-1][1] < 0]}{'xyz'[poses[-1][0]]} に出た")
                     break
                 except ValueError as e:
-                    print(f"  やり直し: {e}")
+                    print(f"  やり直し: {e}{last_err(notes)}")
                     if a.no_prompt:
                         return 1
         try:
@@ -142,7 +148,7 @@ def main(argv=None) -> int:
         except ValueError as e:
             print(f"NG  {e}")
             return 1
-        print(f"OK  --axes {spec}\n以後の link コマンドすべてに同じ --axes を付ける")
+        print(f"OK  --axes={spec}\n以後の link コマンドすべてに同じ --axes を付ける")
     return 0
 
 
