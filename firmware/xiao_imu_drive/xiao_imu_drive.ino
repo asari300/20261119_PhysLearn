@@ -7,6 +7,7 @@
 
 #include <Arduino.h>
 #include "LSM6DS3.h"
+#include "fixed_fmt.h"
 
 // ---- 板ごとの違いはここだけ ----
 #if defined(ARDUINO_Seeed_XIAO_nRF52840_Sense) || defined(ARDUINO_XIAO_MG24)
@@ -96,10 +97,16 @@ void readSerial() {
 }
 
 void sendSample() {
+  // %f は使わない（MG24 のコアでは空になる見込み。fixed_fmt.h）。最長 12+3*9+3*10+1 = 70 文字 < 128
   char out[128];
-  int n = snprintf(out, sizeof(out), "I %lu %.3f %.3f %.3f %.4f %.4f %.4f\n", millis(),
-                   imu.readFloatAccelX() * G, imu.readFloatAccelY() * G, imu.readFloatAccelZ() * G,
-                   imu.readFloatGyroX() * DEG, imu.readFloatGyroY() * DEG, imu.readFloatGyroZ() * DEG);
+  int n = snprintf(out, sizeof(out), "I %lu", millis());
+  n += put_fixed(out + n, imu.readFloatAccelX() * G, 3);
+  n += put_fixed(out + n, imu.readFloatAccelY() * G, 3);
+  n += put_fixed(out + n, imu.readFloatAccelZ() * G, 3);
+  n += put_fixed(out + n, imu.readFloatGyroX() * DEG, 4);
+  n += put_fixed(out + n, imu.readFloatGyroY() * DEG, 4);
+  n += put_fixed(out + n, imu.readFloatGyroZ() * DEG, 4);
+  out[n++] = '\n';
   if (Serial.availableForWrite() >= n) Serial.write(out, n);
 }
 
