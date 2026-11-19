@@ -38,16 +38,20 @@ numpy の `sim.Params` は 16 mm・80 mm、MuJoCo の `diffdrive.xml` は 30 mm�
 ## 3. SolidCraft での流れ
 
 SolidCraft はオープンソースのパラメトリック CAD（https://solidcraft.io 、GitHub は https://github.com/tangency-labs/solidcraft 。最新の正式版は v0.44.1、2026-11-17 公開、JST 2026-11-19 14:10 に GitHub の API で確認。調査は [doc/research/2026-11-19-solidcraft.md](../research/2026-11-19-solidcraft.md)）。
-**この教材の作者はまだ SolidCraft を動かしていない。以下はすべて【未実行】で、公式の文書に書かれた操作だけを並べた。**
+**CLI は JST 2026-11-19 17:36 に、v0.44.1 の Linux 版（WSL2・GPU なし）で動かして確かめた。GUI・ブラウザー版・MCP は【未実行】。** 落とした物・コマンド・出力は [調査](../research/2026-11-19-solidcraft.md) の「実際に動かした結果」にある。
 
-1. ブラウザー版（https://solidcraft.io/app ）を開くか、Windows 側にインストールする。Windows のインストーラーは SignPath で署名されているが、本番の証明書が入るまでは SmartScreen の警告が出ることがある、と公式の README が書く。版が毎日のように上がるので、使った版を記録しておく。
+1. ブラウザー版（https://solidcraft.io/app ）を開くか、Windows 側にインストールする【未実行】。Windows のインストーラーは SignPath で署名されているが、本番の証明書が入るまでは SmartScreen の警告が出ることがある、と公式の README が書く。版が毎日のように上がるので、使った版を記録しておく。
 2. XY 平面にスケッチを作り、長方形を描いて、押し出す。スクリプトにすると [cad/plate.json](../../cad/plate.json) の形になる（120 × 90 × 3 mm の板。大きさは今の MJCF の車体に合わせた `assumed` の値）。
    ```bash
-   solidcraft-cli run cad/plate.json --out plate.step   # 【未実行】
+   solidcraft-cli run cad/plate.json --out plate.step   # 動いた。STEP は 9,413 バイト、体積 32400 mm3
    ```
-3. 穴は `solid.hole`、円は `sketch.circle.center` のコマンドがある。引数は公開のコマンド表 https://docs.solidcraft.io/reference/commands.html にある（例: `sketch.circle.center` は `center: [x,y]`）。試していないので、ここでは見本を書かない。
-4. STL で書き出して 3D プリントする（`file.export_stl`）。書き出したファイルはリポジトリに入れない。
-5. 質量特性: アセンブリの質量特性（`assembly.mass_properties`）か、URDF の書き出し（質量・重心・慣性テンソルが入るとされる）で読む。読んだ値は次の節の計算に 1 部品として入れる。
+3. 穴は、同じスケッチに円（`sketch.circle.center`）を描いて押し出すと、内側の輪が穴になる。寸法は**パラメーター**（`parameters.add`）にして、式で参照する。実際に通した例が [cad/plate_mount.json](../../cad/plate_mount.json)。確かな寸法（XIAO の外形 21 × 17.8 mm）だけを窓にし、未確認の Robo Base の取付穴は仮の値で `TBD_` から始まる名前にした。届いて測ったら、その数字だけを直して作り直す。
+   ```bash
+   solidcraft-cli run cad/plate_mount.json --save plate_mount.sc --out plate_mount.step
+   ```
+   `TBD_robo_hole_dx` を 100 → 94、`TBD_robo_hole_d` を 3.2 → 4 に変えて再計算すると、穴の中心が x = ±50 → ±47 になり、体積が手計算どおりに変わった。詳しくは [cad/README.md](../../cad/README.md)。
+4. STL で書き出して 3D プリントする（`file.export_stl`）【未実行】。書き出したファイルはリポジトリに入れない。
+5. 質量特性: `assembly.mass_properties` で質量・重心・慣性テンソルが読めた（上の板を PLA として 38.578 g、重心 (0, 0, 1.5) mm、Izz 7.4826e-5 kg m2）。URDF の書き出し（`file.export_urdf`）でも同じ `<inertial>` が書けた。読んだ値は次の節の計算に 1 部品として入れる。`cad.py` の直方体の近似（同じ質量の 120 × 90 × 3 mm）は Izz を 7.2333e-5 と出し、CAD より 3.4 % 低い。窓と穴で材料が外側に寄るため。
 
 ## 4. CAD → sim の受け渡し
 
