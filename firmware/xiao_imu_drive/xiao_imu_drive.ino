@@ -8,7 +8,7 @@
 
 // ---- 板ごとの違いはここだけ ----
 #if defined(ARDUINO_Seeed_XIAO_nRF52840_Sense) || defined(ARDUINO_XIAO_MG24)
-// 両板とも D0..D3 が PWM を出せる（nRF52840 は全 GPIO、MG24 は 4 本まで）
+// nRF52840 は全 GPIO で PWM を出せる。MG24 で D0..D3 の PWM が出るかは未確認（未コンパイル）
 const int PIN_L_IN1 = D0, PIN_L_IN2 = D1;  // 左モーター (DRV8833 AIN1/AIN2)
 const int PIN_R_IN1 = D2, PIN_R_IN2 = D3;  // 右モーター (DRV8833 BIN1/BIN2)
 #else
