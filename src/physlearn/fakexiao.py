@@ -4,6 +4,10 @@
     uv run python -m physlearn.link id --port /dev/pts/N --out real.csv
 
 中身は HIDDEN（loop-demo の「実機の代役」）の SimPlant。取り決めは doc/protocol.md。
+
+試験は pty も壁時計も使わない形で回す: `FakeXiao(plant, pty=False).ser` は pyserial と同じ形（write・readline・
+reset_input_buffer・flush・close）の物で、`SerialPlant(ser=...)` に渡せる。PC が 1 行 readline するごとに偽物の時刻が
+1 サンプル (10 ms) 進み、write した指令は次のサンプルから効く。PC の負荷に依らず結果が毎回同じ（決定論）。
 """
 
 import argparse
@@ -30,20 +34,28 @@ _M = re.compile(rf"M [ \t\v\f\r]*((?>{_NUM}))[ \t\v\f\r]*((?>{_NUM}))[ \r]*")
 
 
 class FakeXiao:
-    def __init__(self, plant, axes: str = "x,y,z", speed: float = 1.0):
-        import pty
-        import tty
-
+    def __init__(self, plant, axes: str = "x,y,z", speed: float = 1.0, pty: bool = True):
         self.plant, self.rot, self.speed = plant, parse_axes(axes), speed
-        self.master, self.slave = pty.openpty()
-        tty.setraw(self.slave)  # 相手が開く前でも、エコーや改行の変換をさせない
-        self.port = os.ttyname(self.slave)  # slave を開いたままにして、相手が閉じても master が EIO にならない
-        os.set_blocking(self.master, False)
         self.duty = (0.0, 0.0)
         self.t_ms = self.last_cmd_ms = 0  # 偽物の中の時刻 (millis() の代わり)
         self.running = True
+        self.buf, self.overflow = b"", False
+        if pty:
+            import pty as _pty
+            import tty
+
+            self.master, self.slave = _pty.openpty()
+            tty.setraw(self.slave)  # 相手が開く前でも、エコーや改行の変換をさせない
+            self.port = os.ttyname(self.slave)  # slave を開いたままにして、相手が閉じても master が EIO にならない
+            os.set_blocking(self.master, False)
+        else:
+            self.out = bytearray()
+            self.ser = VirtualPort(self)
 
     def _write(self, s: str) -> None:
+        if hasattr(self, "out"):
+            self.out += s.encode()
+            return
         try:
             os.write(self.master, s.encode())
         except BlockingIOError:
@@ -68,37 +80,79 @@ class FakeXiao:
             os.close(self.master)
             os.close(self.slave)
 
+    def feed(self, data: bytes) -> None:
+        """PC から届いたバイトを行に切って解釈する（スケッチの loop の読み側）。"""
+        for c in data:
+            if c == 10:  # '\n'
+                buf = self.buf.removesuffix(b"\r")
+                if self.overflow:
+                    self._write("# ERR line too long\n")
+                elif buf:
+                    self._line(buf.decode("ascii", "replace"))
+                self.buf, self.overflow = b"", False
+            elif len(self.buf) < LINE_MAX:
+                self.buf += bytes([c])
+            else:
+                self.overflow = True
+
+    def tick(self) -> None:
+        """偽物の時刻を 1 サンプル (10 ms) 進め、サンプルの行を 1 本出す。"""
+        self.t_ms += PERIOD_MS
+        if self.t_ms - self.last_cmd_ms > WATCHDOG_MS:
+            self.duty = (0.0, 0.0)
+        o = self.plant.step(Command(*self.duty), PERIOD_MS / 1000)
+        # 機体 = rot @ 基板 なので、基板 = rot.T @ 機体 にして送る（link の --axes で戻る）
+        a, g = self.rot.T @ (o.ax, o.ay, o.az), self.rot.T @ (o.gx, o.gy, o.gz)
+        self._write("I %d %.3f %.3f %.3f %.4f %.4f %.4f\n" % (self.t_ms, *a, *g))
+
     def _run(self) -> None:
         self.plant.reset()
-        buf, overflow = b"", False
         nxt = time.monotonic()
         while self.running:
             if select.select([self.master], [], [], max(0.0, nxt - time.monotonic()))[0]:
-                for c in os.read(self.master, 4096):
-                    if c == 10:  # '\n'
-                        buf = buf.removesuffix(b"\r")
-                        if overflow:
-                            self._write("# ERR line too long\n")
-                        elif buf:
-                            self._line(buf.decode("ascii", "replace"))
-                        buf, overflow = b"", False
-                    elif len(buf) < LINE_MAX:
-                        buf += bytes([c])
-                    else:
-                        overflow = True
+                self.feed(os.read(self.master, 4096))
             if time.monotonic() < nxt:
                 continue
             nxt += PERIOD_MS / 1000 / self.speed
-            self.t_ms += PERIOD_MS
-            if self.t_ms - self.last_cmd_ms > WATCHDOG_MS:
-                self.duty = (0.0, 0.0)
-            o = self.plant.step(Command(*self.duty), PERIOD_MS / 1000)
-            # 機体 = rot @ 基板 なので、基板 = rot.T @ 機体 にして送る（link の --axes で戻る）
-            a, g = self.rot.T @ (o.ax, o.ay, o.az), self.rot.T @ (o.gx, o.gy, o.gz)
-            self._write("I %d %.3f %.3f %.3f %.4f %.4f %.4f\n" % (self.t_ms, *a, *g))
+            self.tick()
 
     def close(self) -> None:
         self.running = False  # run() が抜けて fd を閉じる
+
+
+class VirtualPort:
+    """pyserial.Serial の代わり（試験用）。readline が偽物の時刻を進める。壁時計は見ない。"""
+
+    def __init__(self, fake: FakeXiao):
+        self.fake = fake
+        fake.plant.reset()
+
+    def write(self, data: bytes) -> int:
+        self.fake.feed(data)
+        return len(data)
+
+    def readline(self) -> bytes:
+        out = self.fake.out
+        while b"\n" not in out:
+            self.fake.tick()
+        line = bytes(out[: out.index(b"\n") + 1])
+        del out[: len(line)]
+        return line
+
+    def reset_input_buffer(self) -> None:
+        self.fake.out.clear()
+
+    def flush(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        pass
 
 
 def main(argv=None) -> None:

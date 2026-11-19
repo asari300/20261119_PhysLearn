@@ -5,41 +5,36 @@ import threading
 
 import numpy as np
 import pytest
-import serial
 
-pytest.importorskip("pty")
-
-from physlearn import HIDDEN  # noqa: E402
-from physlearn.fakexiao import FakeXiao  # noqa: E402
-from physlearn.hwcheck import G, gravity_axis, main, read, solve, stream_checks  # noqa: E402
-from physlearn.link import BAUD, parse_axes  # noqa: E402
-from physlearn.sim import SimPlant  # noqa: E402
+from physlearn.hwcheck import G, gravity_axis, main, read, solve, stream_checks
+from physlearn.link import parse_axes
 
 
 @pytest.fixture
-def fake_factory():
-    fakes = []
+def fake_factory(fake_factory, monkeypatch):  # conftest の同名の fixture を包む
+    """仮想の時刻の偽物（tests/conftest.py）。hwcheck の壁時計と open_port を、この偽物の時刻・口に差し替える。
+
+    実機では「PC 壁時計 周期」は USB・OS の遅れを測る意味のある項目。ここでは壁時計の代わりに偽物の時刻で測るので、
+    項目は判定に残るが、負荷には依らず 10 ms ちょうどになる（判定の式と基準が効くことを確かめるための値）。
+    """
+    from types import SimpleNamespace
+
+    import physlearn.hwcheck as hw
 
     def make(axes="x,y,z"):
-        f = FakeXiao(SimPlant(HIDDEN, seed=1), axes, speed=1.0)  # 周期の検査は実時間でないと意味が無い
-        th = threading.Thread(target=f.run, daemon=True)
-        th.start()
-        fakes.append((f, th))
+        f = fake_factory(axes)
+        monkeypatch.setattr(hw, "time", SimpleNamespace(monotonic=lambda: f.t_ms / 1000, sleep=lambda s: None))
+        monkeypatch.setattr(hw, "open_port", lambda parser, port, **kw: f.ser)
         return f
 
-    yield make
-    for f, th in fakes:
-        f.close()
-        th.join(2)
+    return make
 
 
 def test_stream_passes_period_gaps_and_gravity(fake_factory):
     f = fake_factory()
-    with serial.Serial(f.port, BAUD, timeout=0.05) as ser:
-        d, notes, bad = read(ser, 2.0)
+    d, notes, bad = read(f.ser, 2.0)
     res = {c[0]: c for c in stream_checks(d, notes, bad)}
-    # 2.0 s / 10 ms = 200 個。読み始めと終わりの境で ±1〜2 個ずれうる（1 コアで 201 個を観測）ので上限に余裕。欠けは別の項目が見る
-    assert 180 <= len(d) <= 203
+    assert len(d) == 200  # 2.0 s / 10 ms。仮想の時刻なので毎回ちょうど（壁時計だと境で ±1〜2 個ずれた）
     for name in ("MCU 周期 平均", "MCU 周期 最大", "欠けたサンプル", "壊れた行", "PC 壁時計 周期 平均", "# ERR の行", "加速度ノルム - 9.81", "飽和の疑い"):
         assert res[name][2], res[name]
     assert np.diff(d[:, 0]).mean() == pytest.approx(10.0, abs=0.01)
@@ -49,8 +44,7 @@ def test_stream_passes_period_gaps_and_gravity(fake_factory):
 
 def test_stream_detects_gap_and_saturation(fake_factory):
     f = fake_factory()
-    with serial.Serial(f.port, BAUD, timeout=0.05) as ser:
-        d, notes, bad = read(ser, 1.0)
+    d, notes, bad = read(f.ser, 1.0)
     d = np.delete(d, [30, 31], axis=0)  # 2 個欠けた
     d[50:55, 7] = 20.0  # gz が端に張り付いた
     res = {c[0]: c for c in stream_checks(d, ["# ERR imu not found"], 1)}
@@ -62,8 +56,7 @@ def test_stream_detects_gap_and_saturation(fake_factory):
 def test_fake_flat_pose_gives_z_row(fake_factory, axes):
     # 水平の姿勢で重力が出る基板の軸 = 機体 z に当たる行
     f = fake_factory(axes)
-    with serial.Serial(f.port, BAUD, timeout=0.05) as ser:
-        d, _, _ = read(ser, 0.5)
+    d, _, _ = read(f.ser, 0.5)
     row = parse_axes(axes)[2]
     assert gravity_axis(d[:, 2:5]) == (int(np.argmax(np.abs(row))), int(row.sum()))
 
@@ -108,7 +101,7 @@ def test_gravity_axis_refuses_tilt_and_motion():
 
 def test_cli_axes_on_fake_refuses_when_poses_repeat(fake_factory, capsys):
     f = fake_factory()  # 偽物は 3 回とも水平。姿勢が同じなら断る
-    code = main(["axes", "--port", f.port, "--no-prompt", "--settle", "0", "--seconds", "0.4"])
+    code = main(["axes", "--port", "virtual", "--no-prompt", "--settle", "0", "--seconds", "0.4"])
     out = capsys.readouterr().out
     assert code == 1 and "重力は基板の +z" in out and "同じ軸" in out
 
@@ -126,6 +119,8 @@ def test_stream_timeout_shows_the_err_the_mcu_sent(capsys):
     import os
     import pty
     import time
+
+    pytest.importorskip("pty")
 
     master, slave = pty.openpty()
     stop = threading.Event()
