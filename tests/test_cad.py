@@ -78,6 +78,7 @@ def test_matches_mujoco_and_imu_offset():
 
 
 def test_main_takes_dx_list(capsys):
+    pytest.importorskip("mujoco")  # main は MuJoCo で τ を測る。素の uv sync では skip
     from physlearn.cad import main
 
     main((-0.04,))
