@@ -99,3 +99,17 @@ def test_record_csv(tmp_path):
     assert len(rows) == 1 + 5
     assert float(rows[-1][0]) == pytest.approx(0.05)
     assert rows[-1][-2:] == ["-0.4", "0.4"]
+
+
+def test_id_mode_over_serial(tmp_path, monkeypatch):
+    from physlearn.link import main
+    from physlearn.sim import id_experiment
+
+    n = len(id_experiment(0.01))
+    port = FakePort([sample(t) for t in range(0, 10 * (n + 1), 10)])
+    out = tmp_path / "id.csv"
+    monkeypatch.setattr(serial, "Serial", lambda *a, **k: port)
+    main(["id", "--port", "fake", "--out", str(out)])
+    rows = list(csv.reader(out.open()))
+    assert rows[0] == LOG_COLUMNS and len(rows) == 1 + n
+    assert port.written[-1] == STOP

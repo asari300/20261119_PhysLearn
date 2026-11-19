@@ -1,7 +1,7 @@
 # PC ⇔ XIAO シリアルの取り決め
 
 実装: `firmware/xiao_imu_drive/xiao_imu_drive.ino`（MCU 側）、`src/physlearn/link.py`（PC 側）。
-状態: nRF52840 Sense 向けにコンパイルは通った。**実機ではまだ試していない**。
+状態: nRF52840 Sense 向けにコンパイルは通った（S009 で DRV8835 に合わせたあとも再確認）。MG24 Sense は未コンパイル。**実機ではまだ試していない**。
 
 ## 線のこと
 
@@ -19,6 +19,7 @@
 - MCU は `|duty|` を `DUTY_MAX`（既定 0.6）で切る。PC 側も -1..1 に丸めて送る。
 - **ウォッチドッグ**: 正しい `M` か `S` が 200 ms 来ないと MCU は停止する。走らせ続けたいときは同じ `M` を 200 ms より短い間隔で送り直す（`SerialPlant` は 50 ms ごと）。
 - 起動直後は停止している。
+- duty からピンへ（DRV8835、MODE=GND の IN/IN、fast decay）: duty > 0 は IN1 に PWM・IN2 = 0（正転）、duty < 0 は IN1 = 0・IN2 に PWM（逆転）、0 は両方 0（空転）。ブレーキ (1・1) は使わない。PWM は 8 bit・約 62.7 kHz（nRF52 コアの既定）。
 
 ## MCU → PC
 

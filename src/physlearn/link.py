@@ -1,7 +1,7 @@
 """実機 (XIAO + IMU + 2 輪) とのシリアル接続。取り決めは doc/protocol.md。
 
     uv run python -m physlearn.link still --port /dev/ttyACM0 --seconds 10 --out still.csv
-    uv run python -m physlearn.link step  --port /dev/ttyACM0 --duty 0.4 --out step.csv
+    uv run python -m physlearn.link id    --port /dev/ttyACM0 --out id.csv
 """
 
 import argparse
@@ -12,7 +12,9 @@ from dataclasses import replace
 import numpy as np
 import serial
 
+from physlearn import sim_log
 from physlearn.api import LOG_COLUMNS, Command, Obs
+from physlearn.log import write_csv
 
 BAUD = 115200
 STOP = b"S\n"
@@ -144,21 +146,19 @@ def record(plant: SerialPlant, schedule, dt: float, out: str) -> None:
 
 def main(argv=None) -> None:
     p = argparse.ArgumentParser(prog="python -m physlearn.link", description=__doc__.splitlines()[0])
-    p.add_argument("mode", choices=["still", "step"], help="still: IMU だけ記録 / step: 静止→旋回→停止")
+    p.add_argument("mode", choices=["still", "id"], help="still: IMU だけ記録 / id: sim と同じ同定用の左右交互の旋回")
     p.add_argument("--port", required=True, help="例 /dev/ttyACM0")
     p.add_argument("--out", required=True, help="出力 CSV")
     p.add_argument("--axes", default="x,y,z", help="機体 x,y,z に当たる基板の軸（符号つき）")
     p.add_argument("--dt", type=float, default=0.01)
     p.add_argument("--seconds", type=float, default=10.0, help="still の長さ")
-    p.add_argument("--duty", type=float, default=0.4, help="step の旋回 duty（左 -duty・右 +duty で左旋回）")
     a = p.parse_args(argv)
-    stop = Command(0.0, 0.0)
-    if a.mode == "still":
-        schedule = [(a.seconds, stop)]
-    else:
-        schedule = [(1.0, stop), (2.0, Command(-a.duty, a.duty)), (2.0, stop)]
     with SerialPlant(a.port, a.axes) as plant:
-        record(plant, schedule, a.dt, a.out)
+        if a.mode == "still":
+            record(plant, [(a.seconds, Command(0.0, 0.0))], a.dt, a.out)
+        else:
+            # sim と同じ指令列・同じ安全ゲート。左右交互なので USB ケーブルの正味のねじれはほぼ 0
+            write_csv(a.out, sim_log(plant, a.dt))
     print(f"wrote {a.out}")
 
 
