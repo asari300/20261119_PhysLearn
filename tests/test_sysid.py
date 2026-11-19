@@ -1,3 +1,7 @@
+from dataclasses import replace
+
+import pytest
+
 from physlearn import HIDDEN, sim_log
 from physlearn.api import Command
 from physlearn.log import as_log, read_csv, row, write_csv
@@ -26,3 +30,18 @@ def test_still_only_log_gives_bias_and_noise():
     assert set(est) == {"gyro_bias", "gyro_noise"}
     assert abs(est["gyro_bias"] - HIDDEN.gyro_bias) < 0.01
     assert apply(Params(), est).motor_gain == Params().motor_gain
+
+
+@pytest.mark.parametrize("tau", [0.02, 0.2, 0.4])
+def test_noise_free_fit_recovers_gain_deadband_tau(tau):
+    # 各段の後ろ 30 % の平均だと、τ が大きいほど K が低く出た（0 / -1.8 / -14 %）。モデルの当てはめなら出ない
+    p = replace(Params(), motor_tau=tau, gyro_noise=0.0, accel_noise=0.0)
+    est = identify(as_log(sim_log(SimPlant(p))))
+    assert abs(est["yaw_gain"] / p.yaw_gain() - 1) < 0.02
+    assert abs(est["deadband"] - p.deadband) < 0.005
+    assert abs(est["motor_tau"] / tau - 1) < 0.05
+
+
+def test_hidden_noisy_log_gain():
+    est = identify(as_log(sim_log(SimPlant(HIDDEN, seed=0))))
+    assert est["yaw_gain"] == pytest.approx(8.0, abs=0.1)
