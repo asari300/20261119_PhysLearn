@@ -1,16 +1,20 @@
-// XIAO (内蔵 IMU LSM6DS3TR-C) + DRV8833 の 2 輪差動。取り決めは doc/protocol.md。
+// XIAO (内蔵 IMU LSM6DS3TR-C) + DRV8835（秋月 AE-DRV8835-S、MODE=GND で IN/IN）の 2 輪差動。
+// 取り決めは doc/protocol.md。配線は doc/textbook/03-hardware-firmware.md。
 // MCU -> PC: "I <t_ms> ax ay az gx gy gz"（基板座標、m/s^2・rad/s）を 100 Hz で。
 // PC -> MCU: "M <left> <right>"（duty -1..1）/ "S"（停止）。
-// 必要なライブラリ: Seeed Arduino LSM6DS3（IMU の電源ピンと I2C バスはライブラリが板ごとに選ぶ）。
+// 必要なライブラリ: Seeed Arduino LSM6DS3（IMU の電源ピンと I2C バスはライブラリが板ごとに選ぶ。
+// nRF52840 Sense では begin() が PIN_LSM6DS3TR_C_POWER を HIGH にする: ライブラリ 2.0.8 のソースで確認）。
 
 #include <Arduino.h>
 #include "LSM6DS3.h"
 
 // ---- 板ごとの違いはここだけ ----
 #if defined(ARDUINO_Seeed_XIAO_nRF52840_Sense) || defined(ARDUINO_XIAO_MG24)
-// nRF52840 は全 GPIO で PWM を出せる。MG24 で D0..D3 の PWM が出るかは未確認（未コンパイル）
-const int PIN_L_IN1 = D0, PIN_L_IN2 = D1;  // 左モーター (DRV8833 AIN1/AIN2)
-const int PIN_R_IN1 = D2, PIN_R_IN2 = D3;  // 右モーター (DRV8833 BIN1/BIN2)
+// nRF52840: analogWrite は空いた PWM モジュールに割り当てるのでどの GPIO でもよい。既定は 8 bit・
+// 16 MHz/255 ≈ 62.7 kHz（コア 1.1.13 の HardwarePWM.cpp）で、DRV8835 の上限 250 kHz 内。
+// MG24 は未コンパイル・未確認
+const int PIN_L_IN1 = D0, PIN_L_IN2 = D1;  // 左モーター (DRV8835 AIN1/AIN2)
+const int PIN_R_IN1 = D2, PIN_R_IN2 = D3;  // 右モーター (DRV8835 BIN1/BIN2)
 #else
 #error "XIAO nRF52840 Sense か XIAO MG24 Sense を選ぶ"
 #endif
@@ -29,7 +33,9 @@ size_t len = 0;
 bool overflow = false;
 
 void drive(int in1, int in2, float d) {
-  // IN/IN の fast decay: 片方を PWM、もう片方を 0。0 で両方 0（惰性で止まる）
+  // DRV8835 IN/IN（データシート Table 3）: 10 正転・01 逆転・00 空転・11 ブレーキ。
+  // fast decay（PWM の休みは空転）にする: duty 0・ウォッチドッグ停止が両入力 LOW の空転になり、
+  // 停止で急ブレーキがかからず、入力 0 V はスリープ時の推奨とも合う。duty と速さの非線形は sysid に任せる
   int pwm = (int)(fabsf(d) * 255 + 0.5);
   analogWrite(in1, d > 0 ? pwm : 0);
   analogWrite(in2, d < 0 ? pwm : 0);
