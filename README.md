@@ -23,8 +23,8 @@ IMU を載せた Seeed Studio XIAO と小さな 2 輪車で、Physical AI の基
 - **Isaac Sim / Isaac Lab は実行していない**（WSL2・GPU 無し・RAM 7 GiB）。手引き（[90 章](doc/textbook/90-isaac-sim-guide.md)）だけ。理由は [ADR-0001](doc/adr/0001-sim-stack.md)。
 - **SolidCraft の GUI とブラウザー版は誰も動かしていない。** MCP の登録はしたが、ツールごとの許可は未設定。
 - **車体は Robo Base ミニ 2WD に決めたが、その寸法は未確認。** sim の寸法とモーター定数は**仮の値**（置き場は [cad/dimensions.csv](cad/dimensions.csv)）。
-- 文書の根拠の監査は 5 巡（記録は [log/review/](log/review/)）。4 巡目は 89 件中 裏づけあり 59・誤り 3・断り書きの無い根拠なし 1、5 巡目は 77 件中 裏づけあり 62・誤り 6。コードレビューは 3 巡（指摘 9・7・7 件）。採否は各記録の表。
-- 直っていない問題の一覧は [計画の「分かっている問題」](doc/plan/2026-11-19-plan.md#分かっている問題)（夜の更新待ち）。
+- 文書の根拠の監査は 6 巡（記録は [log/review/](log/review/)）。4 巡目は 89 件中 裏づけあり 59・誤り 3・断り書きの無い根拠なし 1、5 巡目は 77 件中 裏づけあり 62・誤り 6、6 巡目は 104 件中 裏づけあり 78・誤り 3・断り書きの無い根拠なし 1（テスターの 006P 電池の漏れ。直した）。コードレビューは 3 巡（指摘 9・7・7 件）。採否は各記録の表。
+- 直っていない問題の一覧は [計画の「分かっている問題」](doc/plan/2026-11-19-plan.md#分かっている問題)（夜に更新済み。昼の 9 件のうち 8 件が閉じ、15 件を新しく足した）。
 
 ## 最短の道
 
@@ -52,7 +52,7 @@ uv run physlearn loop-demo # 代役の実機で R2S → S2R を 1 周回す
 
 ほかの入口（どれも `--help` で使い方が出る）:
 
-- `physlearn sim-log|sysid|eval|loop-demo`: ログを書く・同定・ばらつきの下での評価・1 周（代役は `--plant`・`--real` に `hidden|mujoco|hard`）
+- `physlearn sim-log|sysid|eval|loop-demo`（`python -m physlearn …` でも同じ）: ログを書く・同定・ばらつきの下での評価・1 周（代役は `--plant`・`--real` に `hidden|mujoco|hard`）
 - `python -m physlearn.link still|id|run|jog --port ...`: 実機とのシリアル接続（実機では未確認）
 - `python -m physlearn.fakexiao`: 偽の XIAO（[12 章](doc/textbook/12-fake-xiao.md)）
 - `python -m physlearn.imu still|turn|r2s`: IMU の実験（[11 章](doc/textbook/11-imu-lab.md)）
@@ -72,8 +72,8 @@ uv run physlearn loop-demo # 代役の実機で R2S → S2R を 1 周回す
 | 案 | 中身 | 合計 |
 | --- | --- | --- |
 | (A) 最小 | XIAO nRF52840 Sense ＋ USB ケーブル。IMU の雑音とバイアスを測る | 3,220 円 |
-| (B) 車体込み | (A) ＋ Robo Base ミニキット 2WD（SKU 10530）・DRV8835 モジュール・電池ボックス・ブレッドボード・ケーブル・電池・テスター | 7,403 円 |
-| (C) 試し部品つき | (B) ＋ エンコーダー用の光センサー（次の一歩の試し） | 7,883 円 |
+| (B) 車体込み | (A) ＋ Robo Base ミニキット 2WD（SKU 10530）・DRV8835 モジュール・電池ボックス・ブレッドボード・ケーブル・電池・テスター（と、その 006P 電池） | 7,603 円 |
+| (C) 試し部品つき | (B) ＋ エンコーダー用の光センサー（次の一歩の試し） | 8,083 円 |
 
 - 第一候補のボードは **XIAO nRF52840 Sense**（IMU は LSM6DS3TR-C、技適あり）。
 - **在庫が細い。** 秋月の通販は残り 8 個（18:01。昼は 9 個）。次点は XIAO MG24 Sense（10/22 に値上がり）、在庫の保険は XIAO nRF54L15 Sense。スイッチサイエンスは商品ページが読めなかった（429）。
