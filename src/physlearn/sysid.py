@@ -1,6 +1,7 @@
 """R2S: ログ CSV からジャイロのバイアス・雑音と、ヨー角速度のゲイン・時定数・デッドバンドを推定する。
 
 前提: 指令は区間ごとに一定（`sim.id_experiment` の形）。最初の区間は静止 (0, 0)。
+動いたステップが 2 つ未満なら（静止だけのログ）、ジャイロのバイアスと雑音だけを返す。
 旋回成分 u = (right - left) / 2 だけを見る。ゲインとデッドバンドは各区間の定常値から、
 時定数はログ全体へのモデルの当てはめから。
 """
@@ -53,8 +54,8 @@ def identify(log: dict) -> dict:
             ss_y.append(np.sign(u[j - 1]) * y[i + int(0.7 * (j - i)) : j].mean())  # 後ろ 30% を定常とみなす
     ss_u, ss_y = np.array(ss_u), np.array(ss_y)
     moving = ss_y > 10 * noise
-    if moving.sum() < 2:
-        raise ValueError("動いたステップが 2 つ以上いる（ゲインとデッドバンドを分けるため）")
+    if moving.sum() < 2:  # 静止だけのログ（モーター無しの XIAO など）ではゲインとデッドバンドを分けられない
+        return {"gyro_bias": bias, "gyro_noise": noise}
     # 定常: y = K (u - db)  →  u に対する直線の傾きが K、y = 0 の切片が db
     k, c = np.polyfit(ss_u[moving], ss_y[moving], 1)
     db = float(max(0.0, -c / k))
@@ -71,6 +72,6 @@ def identify(log: dict) -> dict:
 
 
 def apply(p: Params, est: dict) -> Params:
-    """推定値で sim のパラメータを直す（車輪半径・トレッドは測れないのでそのまま）。"""
-    p = replace(p, **{k: est[k] for k in ("gyro_bias", "gyro_noise", "deadband", "motor_tau")})
-    return p.with_yaw_gain(est["yaw_gain"])
+    """推定値で sim のパラメータを直す（車輪半径・トレッドは測れないのでそのまま）。推定しなかった値も元のまま。"""
+    p = replace(p, **{k: est[k] for k in ("gyro_bias", "gyro_noise", "deadband", "motor_tau") if k in est})
+    return p.with_yaw_gain(est["yaw_gain"]) if "yaw_gain" in est else p
