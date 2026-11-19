@@ -9,10 +9,11 @@
 
 道具は `python -m physlearn.compare` です。サブコマンドは 3 つです。
 
+<!-- docs_check: skip 書式の例（LOG.csv などは実在しない） -->
 ```bash
-python -m physlearn.compare fit LOG.csv PARAMS.json   # ログと同じ指令を sim に流し、gz の残差を見る
-python -m physlearn.compare holdout LOG.csv           # 正の向きで同定し、負の向きで確かめる
-python -m physlearn.compare spread A.json B.csv ...   # 何回かの同定の幅を SPREAD と並べる
+uv run python -m physlearn.compare fit LOG.csv PARAMS.json   # ログと同じ指令を sim に流し、gz の残差を見る
+uv run python -m physlearn.compare holdout LOG.csv           # 正の向きで同定し、負の向きで確かめる
+uv run python -m physlearn.compare spread A.json B.csv ...   # 何回かの同定の幅を SPREAD と並べる
 ```
 
 ## なぜ推定値だけでは足りないか
@@ -45,11 +46,11 @@ python -m physlearn.compare spread A.json B.csv ...   # 何回かの同定の幅
 同じログに対して 3 つの相手を並べます。ログは次のように作りました。
 
 ```bash
-physlearn sim-log hidden.csv --plant hidden
-physlearn sysid hidden.csv --out hidden_id.json
-physlearn sim-log mujoco.csv --plant mujoco
-physlearn sysid mujoco.csv --out mujoco_id.json
-python -c "from dataclasses import replace; from physlearn.sim import Params; p=Params.load('hidden_id.json'); replace(p, motor_tau=2*p.motor_tau).save('hidden_tau2.json')"
+uv run physlearn sim-log hidden.csv --plant hidden
+uv run physlearn sysid hidden.csv --out hidden_id.json
+uv run physlearn sim-log mujoco.csv --plant mujoco
+uv run physlearn sysid mujoco.csv --out mujoco_id.json
+uv run python -c "from dataclasses import replace; from physlearn.sim import Params; p=Params.load('hidden_id.json'); replace(p, motor_tau=2*p.motor_tau).save('hidden_tau2.json')"
 ```
 
 | | (a) 同じ式の代役 | (b) MuJoCo の代役 | (c) τ を 2 倍に外した sim |
@@ -91,8 +92,8 @@ python -c "from dataclasses import replace; from physlearn.sim import Params; p=
 左右で特性が違えば、確かめる側だけ合わなくなります。
 
 ```bash
-python -m physlearn.compare holdout hidden.csv
-python -m physlearn.compare holdout mujoco.csv
+uv run python -m physlearn.compare holdout hidden.csv
+uv run python -m physlearn.compare holdout mujoco.csv
 ```
 
 | | 同定に使った（正の向き） | 使っていない（負の向き） |
@@ -113,12 +114,12 @@ MuJoCo では、使った側でも使っていない側でも 3.4 倍です。�
 実機の代わりに、隠しパラメータ `HIDDEN` を少しずつ変えた 4 台を作りました（ゲイン ×0.9〜1.1、時定数 ×0.9〜1.15、デッドバンド −0.02〜+0.02）。
 
 ```bash
-python -c "
+uv run python -c "
 from dataclasses import replace; from physlearn import HIDDEN
 for i,(g,t,d) in enumerate([(1.0,1.0,0.0),(0.9,1.1,0.02),(1.1,0.9,-0.02),(0.95,1.15,0.01)]):
     replace(HIDDEN, motor_gain=HIDDEN.motor_gain*g, motor_tau=HIDDEN.motor_tau*t, deadband=HIDDEN.deadband+d).save(f'v{i}.json')"
-for i in 0 1 2 3; do physlearn sim-log v$i.csv --params v$i.json --seed $i; done
-python -m physlearn.compare spread v0.csv v1.csv v2.csv v3.csv
+for i in 0 1 2 3; do uv run physlearn sim-log v$i.csv --params v$i.json --seed $i; done
+uv run python -m physlearn.compare spread v0.csv v1.csv v2.csv v3.csv
 ```
 
 `spread` は CSV なら同定してから、JSON ならそのまま読みます。
@@ -146,11 +147,11 @@ python -m physlearn.compare spread v0.csv v1.csv v2.csv v3.csv
 ## 実機のログでやるときの手順
 
 1. 実機で同定の実験をしてログを取る（03 章）: `uv run python -m physlearn.link id --port /dev/ttyACM0 --out id.csv`
-2. 同定する: `physlearn sysid id.csv --out real.json`
-3. 当てはまりを見る: `python -m physlearn.compare fit id.csv real.json`
-4. 左右差を見る: `python -m physlearn.compare holdout id.csv`
-5. 電池や床を変えて 1〜2 を何回か繰り返し、幅を見る: `python -m physlearn.compare spread real1.json real2.json ...`
-6. 図で見る: `python -m physlearn.plot log id.csv --out fit.png --params real.json`
+2. 同定する: `uv run physlearn sysid id.csv --out real.json`
+3. 当てはまりを見る: `uv run python -m physlearn.compare fit id.csv real.json`
+4. 左右差を見る: `uv run python -m physlearn.compare holdout id.csv`
+5. 電池や床を変えて 1〜2 を何回か繰り返し、幅を見る: `uv run python -m physlearn.compare spread real1.json real2.json ...`
+6. 図で見る: `uv run python -m physlearn.plot log id.csv --out fit.png --params real.json`
 
 ポート名は環境で変わります（03 章）。実機での確認は、まだしていません【未確認】。
 
