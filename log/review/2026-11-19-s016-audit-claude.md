@@ -146,3 +146,24 @@ ADR 0001 の決定を変える事実の誤りは無かった。
 - docs.ros.org（アクセス拒否）、arXiv の総説、AWS G6e と GCP の価格。
 - 04〜08 章の「実際に走らせた出力」の数値（S008 が書き換え中のため対象外）。
 - 05・07 章（同期・同定）は式を見ていない。
+
+## 採否（S022 `s022-audit-fix-bringup` が書き足し。上の原文は変えていない）
+
+取り直しは JST 2026-11-19 13:55〜13:56。PyPI は JSON API（`https://pypi.org/pypi/<名前>/json`）を curl で読み、changelog と文書は GitHub の rst 原文を読んだ（要約ではない）。直したコミットはどれも S022 の 1 つ目「S022: 監査の誤り #2〜#4 と二次的な出典を直す」。
+
+| # / 行 | 指摘 | 採否 | 理由・直したコミット |
+| --- | --- | --- | --- |
+| 誤り #1 | hardware.md:167 の既定アドレス | — | S019 が対応 |
+| 誤り #2 | LeRobot 0.6.1 → 0.7.0 | 採用 | PyPI JSON: 最新 0.7.0、upload 2026-11-05。software.md の LeRobot 行を直した |
+| 誤り #3 | Genesis 1.2.1 / 1.3.3 → 1.4.7 | 採用 | PyPI JSON: 最新 1.4.7、upload 2026-11-17。Genesis 行を直した |
+| 誤り #4 | MJWarp の正式リリースは 3.5.0 だけ | 採用 | changelog 原文（`doc/changelog.rst`）の Version 3.5.0 (February 12, 2026) の節に「MuJoCo Warp is now officially released」。3.7.0 の節には無い。監査の根拠（検索要約）を原文で裏づけた。PyPI `mujoco-warp` の最新 4.0.1 も書き添えた |
+| 誤り #5 | hardware.md:54 の種別の自己矛盾 | — | S019 が対応 |
+| R:45 / A:10 | 「NVIDIA 職員」が WSL2 非対応と回答（二次的） | 採用 | フォーラムの JSON 原文: 回答者 VickNV は Moderator（staff）、2025-10-31、質問は Isaac Sim 5.x。「職員」を「モデレーター」に、時期と「6.2 で変わったかは未確認」を足した（software.md の §0・§2、ADR:10） |
+| R:25 | MJWarp は Newton の一部として保守（二次的） | 採用 | `doc/mjwarp/index.rst` 原文は「NVIDIA と Google DeepMind の共同で開発・保守」。そう書き直した |
+| R:28 | Lyrical 2026-05-22 GA（取り直せず） | 採用（裏づけ） | docs.ros.org が今回は 200 で読めた。「Friday May 22nd, 2026 - General Availability」。出典に取り直しの時刻を足した |
+| R:28 | Kilted の EOL（二次的） | 採用 | 「2026-11〜12（食い違い）」を「endoflife.date で 2026-12-31（二次資料。公式は未確認）」に直した。公式の記載は見つけていない |
+| R:23 | 「flex の弾性定数」は rod の曲げ・ねじれ（言い直し） | 保留 | 4.0.0 の節を grep した範囲では言い直しの決め手が見つからず、時間切れ |
+| 08:48 | condim と priority（二次的） | 保留 | 08 章は S023 の持ち分 |
+| hardware・03 章・protocol の「取り直せず」 | DRV8835 の PDF、比較表、価格 | — | S019 の持ち分 |
+
+結論: 採用 7 件（誤り 3・二次的/取り直せず 4）、保留 2 件、他のセッションへ 3 件。00・10・90 章には直した数字（LeRobot・Genesis・MJWarp の版、「職員」）が出てこないことを grep で確かめた。
