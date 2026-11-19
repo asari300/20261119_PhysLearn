@@ -34,7 +34,7 @@ SolidCraft を (1) sim への受け渡し、(2) CI での検査、(3) 発注者�
 - API の digest を JST 17:48 に取り直した: `164097743f6ff11c1eeb90a4313964728955e297689052053e4e5d8d20a64229`（ワークフローの固定値と同じ）。手元の展開済み CLI の `ldd` で `not found` は 0 件。
 - MCP: `solidcraft-cli mcp --headless` に `initialize` → `tools/list`。ツール 22 個、読み取りだけは 10 個。`--allow-path` なしでは `open` が拒否され、付けると `open` → `measure` → `parameters.change` → `save` が通った（scratch のコピーで。リポジトリの `cad/` には書いていない）。
 - `uv run --extra mujoco --extra viz pytest -q`: 117 passed。
-- 漏洩検査（ホームのパス・ユーザー名）: 追加した 8 ファイルで 0 件（`grep /home/ mermaid`）。セッション記録の `--check` は統括が行う。
+- 漏洩検査（ホームのパス・ユーザー名）: 追加した 8 ファイルで 0 件（`grep` でホームのパスとユーザー名）。セッション記録の `--check` は統括が行う。
 
 ## 確かめていないこと・残したこと
 
