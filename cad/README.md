@@ -11,14 +11,31 @@ Cytron Robo Base 2WD の上に載せる取り付け板（またはケース）�
 | `dimensions.csv` | 部品の外形・質量の表。**寸法の唯一の置き場**。各値に出どころ（`datasheet` / `measured` / `cad` / `assumed`）と URL・取得時刻。届いたら `measured` 欄に測った値を書く |
 | `plate.json` | 板だけ（120 × 90 × 3 mm、穴なし）。SolidCraft v0.44.1 の CLI で STEP が書き出せることを確かめた最小の例 |
 | `plate_mount.json` | 取り付け板。パラメーター付き。XIAO の窓（datasheet の外形 + 逃げ）と、Robo Base 取付穴の**仮の値**の 4 穴。材料 PLA（密度は SolidCraft の表の値） |
+| `plate_mount.design.json` | `plate_mount.json` から `solidcraft-cli run … --save` で作った**設計 JSON**（10.7 KB、505 行、`"format": "solidcraft/58"`）。ブラウザー版・GUI・MCP の `open` が開ける形。**正本（下の「どれを正にするか」）** |
 | `plate_mass.json` | 質量特性を読む 1 コマンド（`assembly.mass_properties`）。`--in` で設計に重ねて使う |
-| `expected.csv` | 設計ごとの体積・質量・Izz の期待値（手計算）。CI（`.github/workflows/cad.yml`）が `check.sh` で比べる |
+| `expected.csv` | ファイルごとの体積・質量・Izz の期待値（手計算）。CI（`.github/workflows/cad.yml`）が `check.sh` で比べる |
 | `check.sh` `check_expected.py` | `cad/expected.csv` の各スクリプトを STEP にして数字を比べる。手元は `cad/check.sh`（`solidcraft-cli` が PATH にあること） |
 | `README.md` | この文書（要件と走らせ方） |
 
-コミットするもの: 寸法表、スクリプト `.json`（テキスト。設計の正本）。
+コミットするもの: 寸法表、設計 JSON（`*.design.json`。正本）、コマンド列の `.json`（レシピ。人が読む・Claude が書く出発点）。
 コミットしないもの: 書き出した STEP / STL / 3MF / URDF とそのメッシュ（`.json` から作り直せる。`plate_mount.step` は 29 KB と小さいが、方針は変えない）、`.sc`。
-`.sc`（v0.44.1 が書いたものは zip で、`plate_mount` は 11.8 KB）はバイナリなので入れない。`.json` から `--save` で作り直せる。
+`.sc`（v0.44.1 が書いたものは zip で、`plate_mount` は 11.8 KB）はバイナリなので入れない。設計 JSON と同じ内容なので要らない。
+
+## どれを正にするか（S051 の決定。ブラウザー版での確かめは発注者）
+
+**正本は設計 JSON（`cad/<名前>.design.json`）、コマンド列の `cad/<名前>.json` はレシピ**にする。決め手は、実際に試して分かった 3 つ（v0.44.1、2026-11-19）。
+
+1. **3 つの道具すべてが開けるのは設計 JSON だけ**。ブラウザー版・GUI は File > Open / Save As JSON、MCP の `open`/`save` は `.sc` と設計 JSON を扱う。CLI の `run`/`eval` も設計 JSON をそのまま開く（`--param-check strict` も通った）。コマンド列の JSON は CLI と `mcp --in` だけで、MCP の `open` は開けない（確かめた）。
+2. **人がブラウザー版で直した結果を失わない**。設計 → コマンド列（`solidcraft-cli script`）に直すと外観（色）が落ちる。CLI 自身が `note: the script leaves out appearances` と出す。色を付けた設計 JSON を `script` で戻して `run --save` し直すと、`appearances` の 13 行が消えた。部品や関節も同じ型の落ちがあり得る【未確認】。
+3. **再保存でバイトが変わらない**（`name` 欄はファイル名から決まるので、同じ名前で保存すること）。差分は大きめ（パラメーター 1 つで 12 行、コマンド列は 4 行）だが、`git diff` で読める。
+
+弱点は、読みやすさと版への依存。設計 JSON の形式は版ごとに番号が変わる（`solidcraft/58`）。新しい版の形式を古い版で開くと警告が出る（公式の文書）。CI は版を固定している。
+**運用**:
+- 設計は、人がブラウザー版（または GUI）で直して Save As JSON し、`cad/<名前>.design.json` に上書きしてコミットする。
+- コマンド列（レシピ）を直したら、`solidcraft-cli run cad/<名前>.json --save cad/<名前>.design.json` で作り直す。**人が色などを付けていたら、これは上書きで失われる**ので、先に設計 JSON の差分を見る。
+- 設計 JSON から読めるレシピを作るには `solidcraft-cli script cad/<名前>.design.json --out cad/<名前>.json`（外観は落ちる）。
+- `expected.csv` には**両方**の行を書く。同じ数字になることで、レシピと正本のずれを CI が見つける。
+- 発注者が確かめる点（ブラウザー版でしか分からない。自分たちでは【未実行】）: (a) https://solidcraft.io/app で `cad/plate_mount.design.json` を File > Open で開けるか、(b) 少し直して Save As JSON したファイルが `solidcraft-cli run` で通るか、(c) `git diff` が読めるか。(a) か (b) が通らなければ、当面の取り決めは「レシピを正、設計 JSON は派生」に戻す。
 
 ## 走らせ方（v0.44.1 の Linux 版 CLI で確かめた。JST 2026-11-19 17:36〜17:43、WSL2・GPU なし）
 
