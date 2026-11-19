@@ -107,3 +107,18 @@ def test_gate_trip_stops(fake):
     finally:
         control.SafetyGate.__init__.__defaults__ = old
     wait_stopped(fake)
+
+
+def test_reset_waits_for_rotation_to_stop(fake, capsys):
+    def spin_then_reset(settle):
+        with SerialPlant(fake.port, settle=settle) as p:
+            p.reset()
+            for _ in range(100):  # 1 s 旋回する（gz は約 2.8 rad/s）
+                p.step(Command(-0.5, 0.5), 0.01)
+            return p.reset()  # 停止を送ったあとの最初の状態
+
+    fast = spin_then_reset(False)
+    assert abs(fast.gz - HIDDEN.gyro_bias) > 0.5  # 待たないと、回っている最中から次の回が始まる
+    slow = spin_then_reset(True)
+    assert slow.t == 0.0 and abs(slow.gz - HIDDEN.gyro_bias) < 0.1  # バイアス 0.08 の個体でも「止まった」と判定できる
+    assert capsys.readouterr().err == ""  # 2 s のタイムアウトの警告は出ていない

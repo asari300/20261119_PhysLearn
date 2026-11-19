@@ -5,7 +5,7 @@ import pytest
 import serial
 
 from physlearn.api import LOG_COLUMNS, Command
-from physlearn.link import STOP, SerialPlant, decode_sample, encode_command, parse_axes, record
+from physlearn.link import SETTLE_N, STOP, SerialPlant, decode_sample, encode_command, parse_axes, record
 
 
 def sample(t_ms, a=(0.1, 0.2, 9.8), g=(0.01, 0.02, 0.03)):
@@ -53,7 +53,7 @@ def test_step_over_loopback():
     # loop:// は書いたものがそのまま返る。指令行は捨てられ、I 行だけが観測になる
     ser = serial.serial_for_url("loop://", timeout=0.01)
     ser.write(sample(1000) + b"garbage\n" + sample(1010) + sample(1020, g=(0, 0, 0.5)))
-    p = SerialPlant(ser=ser, axes="-y,x,z")
+    p = SerialPlant(ser=ser, axes="-y,x,z", settle=False)
     ser.reset_input_buffer = lambda: None  # 仕込んだサンプルを reset で捨てさせない
     assert p.reset().t == 0.0
     o = p.step(Command(-0.3, 0.3), 0.02)
@@ -84,7 +84,7 @@ class FakePort:
 def test_timeout_sends_stop():
     port = FakePort([sample(0)])
     with pytest.raises(TimeoutError):
-        with SerialPlant(ser=port, timeout=0.05) as p:
+        with SerialPlant(ser=port, settle=False, timeout=0.05) as p:
             p.reset()
             p.step(Command(0.5, 0.5), 0.01)  # 以後サンプルが来ない
     assert port.written[-1] == STOP and port.closed
@@ -94,14 +94,14 @@ def test_timeout_sends_stop():
 def test_timeout_names_last_err_line():
     port = FakePort([b"# ERR imu not found\n", b"# hello\n"])
     with pytest.raises(TimeoutError, match="# ERR imu not found"):
-        with SerialPlant(ser=port, timeout=0.05) as p:
+        with SerialPlant(ser=port, settle=False, timeout=0.05) as p:
             p.reset()
 
 
 def test_exception_in_caller_sends_stop():
     port = FakePort([sample(0), sample(10)])
     with pytest.raises(RuntimeError):
-        with SerialPlant(ser=port) as p:
+        with SerialPlant(ser=port, settle=False) as p:
             p.reset()
             p.step(Command(0.5, -0.5), 0.01)
             raise RuntimeError("controller bug")
@@ -112,7 +112,7 @@ def test_exception_in_caller_sends_stop():
 def test_nonfinite_command_raises_and_stops(bad):
     port = FakePort([sample(0), sample(10)])
     with pytest.raises(ValueError):
-        with SerialPlant(ser=port) as p:
+        with SerialPlant(ser=port, settle=False) as p:
             p.reset()
             p.step(Command(bad, 0.2), 0.01)
     assert not any(w.startswith(b"M") for w in port.written)  # 逆転の指令を 1 行も送らない
@@ -122,7 +122,7 @@ def test_nonfinite_command_raises_and_stops(bad):
 def test_record_csv(tmp_path):
     port = FakePort([sample(t) for t in range(0, 60, 10)])
     out = tmp_path / "log.csv"
-    record(SerialPlant(ser=port), [(0.02, Command(0, 0)), (0.03, Command(-0.4, 0.4))], 0.01, str(out))
+    record(SerialPlant(ser=port, settle=False), [(0.02, Command(0, 0)), (0.03, Command(-0.4, 0.4))], 0.01, str(out))
     rows = list(csv.reader(out.open()))
     assert rows[0] == LOG_COLUMNS
     assert len(rows) == 1 + 5
@@ -133,14 +133,14 @@ def test_record_csv(tmp_path):
 def test_record_logs_clipped_duty(tmp_path):
     port = FakePort([sample(t) for t in range(0, 30, 10)])
     out = tmp_path / "log.csv"
-    record(SerialPlant(ser=port), [(0.02, Command(0.9, -2))], 0.01, str(out))
+    record(SerialPlant(ser=port, settle=False), [(0.02, Command(0.9, -2))], 0.01, str(out))
     rows = list(csv.reader(out.open()))
     assert [r[-2:] for r in rows[1:]] == [["0.6", "-0.6"]] * 2
 
 
 def test_partial_line_is_dropped():
     port = FakePort([sample(0), b"I 10 0.012 -0.034 9.806 0.0011 -0.0007 1", sample(20)])
-    with SerialPlant(ser=port) as p:
+    with SerialPlant(ser=port, settle=False) as p:
         p.reset()
         o = p.step(Command(0, 0), 0.01)
     assert o.t == pytest.approx(0.02) and o.gz == pytest.approx(0.03)  # 切れた行の gz=1 ではない
@@ -149,7 +149,7 @@ def test_partial_line_is_dropped():
 def test_mcu_time_going_back_stops():
     port = FakePort([sample(50000), sample(50010)] + [sample(t) for t in range(0, 10000, 10)])
     with pytest.raises(RuntimeError):
-        with SerialPlant(ser=port) as p:
+        with SerialPlant(ser=port, settle=False) as p:
             p.reset()
             p.step(Command(0.3, 0.3), 0.01)
             p.step(Command(0.3, 0.3), 0.03)
@@ -170,7 +170,7 @@ def test_id_mode_over_serial(tmp_path, monkeypatch):
     from physlearn.sim import id_experiment
 
     n = len(id_experiment(0.01))
-    port = FakePort([sample(t) for t in range(0, 10 * (n + 1), 10)])
+    port = FakePort([sample(t) for t in range(0, 10 * (n + 1 + SETTLE_N), 10)])  # reset が止まるのを待つ分（20 サンプル）が先に要る
     out = tmp_path / "id.csv"
     monkeypatch.setattr(serial, "Serial", lambda *a, **k: port)
     main(["id", "--port", "fake", "--out", str(out)])
