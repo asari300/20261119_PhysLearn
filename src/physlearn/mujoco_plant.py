@@ -14,8 +14,9 @@ MODEL = Path(__file__).parent / "models" / "diffdrive.xml"
 
 
 class MujocoPlant:
-    def __init__(self, noise_acc=0.0, noise_gyro=0.0, bias_gyro=(0.0, 0.0, 0.0), seed=0):
-        self.model = mujoco.MjModel.from_xml_path(str(MODEL))
+    def __init__(self, noise_acc=0.0, noise_gyro=0.0, bias_gyro=(0.0, 0.0, 0.0), seed=0, xml: str | None = None):
+        # xml: 書き換えた MJCF の文字列（cad.to_mjcf の出力など）。None なら diffdrive.xml
+        self.model = mujoco.MjModel.from_xml_string(xml) if xml else mujoco.MjModel.from_xml_path(str(MODEL))
         self.data = mujoco.MjData(self.model)
         self.noise_acc, self.noise_gyro = noise_acc, noise_gyro
         self.bias_gyro = np.asarray(bias_gyro, float)
