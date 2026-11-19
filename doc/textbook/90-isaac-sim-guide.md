@@ -66,6 +66,7 @@ class IsaacPlant:  # Plant を満たす（スケッチ。未実行）
 
 ## 4. ROS 2 とつなぐ場合（今回は後回し）
 
-- Isaac Sim には ROS 2 Bridge がある。ROS 2 の推奨は Lyrical Luth（LTS、EOL 2031-05）。
+- Isaac Sim には ROS 2 Bridge がある。Isaac Sim 6.2.0 の文書は「Ubuntu 24.04 with Jazzy is recommended」（推奨は Ubuntu 24.04 と Jazzy）、「Humble and Jazzy are tested」（試験済みは Humble と Jazzy）、ほかの ROS 2 は experimental（動作の保証なし）としている。Humble は Ubuntu 24.04 では未対応（"Humble on Ubuntu 24.04 is not supported"）。ブリッジの試験済みに Lyrical Luth は入っていない。出典: https://docs.isaacsim.omniverse.nvidia.com/6.2.0/installation/install_ros.html （2026-11-19 18:22 JST 取得）。
+- ROS 2 全般の推奨は Lyrical Luth（LTS、EOL 2031-05）だが、Isaac Sim のブリッジに使う ROS 2 は上の Jazzy か Humble にする（Lyrical を入れると、試験されていない組み合わせになる）。Lyrical の日付は今回取り直していない【未確認】。
 - 公式文書には、Windows の Isaac Sim と WSL2 の ROS 2 をつなぐ手順がある（6.0.0 の文書）: https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/install_ros_other_platforms.html （取得 13:3x JST、検索要約。本文は未読）。
 - 実機 XIAO を micro-ROS でつなぐ場合、`micro_ros_platformio` の公式対応表に XIAO は無い（ESP32 は `esp32dev` のみ）。自分で確かめる必要がある。
