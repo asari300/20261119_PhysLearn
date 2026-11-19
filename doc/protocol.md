@@ -1,7 +1,7 @@
 # PC ⇔ XIAO シリアルの取り決め
 
 実装: `firmware/xiao_imu_drive/xiao_imu_drive.ino`（MCU 側）、`src/physlearn/link.py`（PC 側）。
-状態: nRF52840 Sense 向け（非 mbed 版コア `Seeeduino:nrf52` 1.1.13）にコンパイルは通った（S019 で IMU の範囲を明示したあとも再確認、58,172 バイト）。MG24 Sense は未コンパイル。**実機ではまだ試していない**。
+状態: nRF52840 Sense 向け（非 mbed 版コア `Seeeduino:nrf52` 1.1.13）にコンパイルは通った（S019 で IMU の範囲を明示したあとも再確認、58,172 バイト）。MG24 Sense は GitHub Actions の `firmware-mg24` ジョブでコンパイルが通った（2026-11-19 18:14 JST、run 44494576657）が、手元では未コンパイル。**実機ではまだ試していない**。
 
 ## 線のこと
 
