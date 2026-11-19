@@ -12,6 +12,10 @@ log/
 └── work/       作業記録（手動。1 セッション 1 枚）
 ```
 
+## 公開と CI
+
+remote は GitHub の公開リポジトリ。`log/sessions/`・`log/work/`・`log/review/` はそのまま公開されるので、コミットの前の `--check` と漏洩検査を省かない。push の後は `gh run watch` で CI（`test` / `firmware` / `firmware-mg24`）を確かめる。
+
 ## local/ — 自動、コミットしない
 
 - `.claude/settings.json` の `Stop` / `SessionEnd` フックが [../.claude/hooks/save_session_log.py](../.claude/hooks/save_session_log.py) を呼ぶ。毎ターン上書きするので、途中で落ちても直前まで残る。

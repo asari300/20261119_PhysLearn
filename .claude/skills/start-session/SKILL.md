@@ -25,6 +25,8 @@ git worktree add -b "feature/$TOPIC" "$WT" main
 cd "$WT" && uv sync
 ```
 
+remote は GitHub（`origin`）。締めで main に取り込んだら push して CI を見る（`/finish-session`）。
+
 ## 3. 作業記録の下書きを作る
 
 `log/work/<YYYY-MM-DD>-sNNN-<topic>.md` を [log/work/_TEMPLATE.md](../../../log/work/_TEMPLATE.md) から作り、「日付 / ブランチ / worktree / 依頼」まで埋める。

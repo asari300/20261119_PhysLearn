@@ -1,4 +1,17 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git worktree list:*)",
+      "Bash(git branch --list:*)",
+      "Bash(uv tree:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(python3 .claude/hooks/save_session_log.py --check:*)"
+    ]
+  },
   "hooks": {
     "Stop": [
       {

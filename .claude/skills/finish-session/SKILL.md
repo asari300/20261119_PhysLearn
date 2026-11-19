@@ -1,6 +1,6 @@
 ---
 name: finish-session
-description: PhysLearn のセッションを締める。pytest、伏せ字にしたセッション記録のコピーと漏洩の検査、作業記録の仕上げ、feature ブランチへのコミット、main への --no-ff マージまでを順に行う。「作業を終わる」「まとめて」「コミットして」と言われたとき、または一区切りついたときに使う。
+description: PhysLearn のセッションを締める。pytest、伏せ字にしたセッション記録のコピーと漏洩の検査、作業記録の仕上げ、feature ブランチへのコミット、main への --no-ff マージ、push、CI の確認、終わった worktree の片付けまでを順に行う。「作業を終わる」「まとめて」「コミットして」と言われたとき、または一区切りついたときに使う。
 ---
 
 # セッションの締め
@@ -53,7 +53,20 @@ git merge main                           # 先に最新の main を取り込み�
 git -C "$MAIN" merge --no-ff -m "Merge $BRANCH: <要約>" "$BRANCH"
 ```
 
-remote は無いので push はしない。
+## 5b. push して CI を見る
+
+```bash
+git -C "$MAIN" push origin main
+gh run watch --exit-status               # test / firmware は必須。firmware-mg24 は落ちても全体は落ちない
+```
+
+- 公開リポジトリ。4 の漏洩検査を省かない。
+- CI が落ちたら main に直しを入れる。force push はしない。
+- 完全に終わった worktree は、main に取り込み済み（`git branch --merged main` に出る）で `git -C "$WT" status --porcelain` が空と確かめてから片付ける。
+
+```bash
+git -C "$MAIN" worktree remove "$WT" && git -C "$MAIN" branch -d "$BRANCH"
+```
 
 ## 6. 報告する
 
