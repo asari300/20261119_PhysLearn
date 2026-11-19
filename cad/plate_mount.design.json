@@ -1,0 +1,506 @@
+{
+  "format": "solidcraft/58",
+  "name": "plate_mount.design",
+  "units": "mm",
+  "params": [
+    {
+      "name": "plate_w",
+      "expr": "120",
+      "unit": "mm",
+      "comment": "assumed: 板の幅(x)。MJCF の chassis と同じ。Robo Base の上板は未測定",
+      "model": false
+    },
+    {
+      "name": "plate_d",
+      "expr": "90",
+      "unit": "mm",
+      "comment": "assumed: 板の奥行(y)",
+      "model": false
+    },
+    {
+      "name": "plate_t",
+      "expr": "3",
+      "unit": "mm",
+      "comment": "assumed: 板厚。作る材料で決まる",
+      "model": false
+    },
+    {
+      "name": "xiao_w",
+      "expr": "21",
+      "unit": "mm",
+      "comment": "datasheet: XIAO nRF52840 の外形 21 x 17.8 mm (dimensions.csv)",
+      "model": false
+    },
+    {
+      "name": "xiao_d",
+      "expr": "17.8",
+      "unit": "mm",
+      "comment": "datasheet: 同上",
+      "model": false
+    },
+    {
+      "name": "xiao_clearance",
+      "expr": "0.3",
+      "unit": "mm",
+      "comment": "assumed: 窓の片側の逃げ。設計者の選択で、測った値ではない",
+      "model": false
+    },
+    {
+      "name": "TBD_robo_hole_dx",
+      "expr": "100",
+      "unit": "mm",
+      "comment": "仮の値(未確認): Robo Base の上板の取付穴の x 方向の間隔。届いて測ったらこの 1 つを直す",
+      "model": false
+    },
+    {
+      "name": "TBD_robo_hole_dy",
+      "expr": "60",
+      "unit": "mm",
+      "comment": "仮の値(未確認): 同 y 方向の間隔",
+      "model": false
+    },
+    {
+      "name": "TBD_robo_hole_d",
+      "expr": "3.2",
+      "unit": "mm",
+      "comment": "仮の値(未確認): 取付穴の径。M3 の通し穴を仮置き",
+      "model": false
+    },
+    {
+      "name": "d1",
+      "expr": "TBD_robo_hole_d",
+      "unit": "mm",
+      "model": true
+    },
+    {
+      "name": "d2",
+      "expr": "TBD_robo_hole_d",
+      "unit": "mm",
+      "model": true
+    },
+    {
+      "name": "d3",
+      "expr": "TBD_robo_hole_d",
+      "unit": "mm",
+      "model": true
+    },
+    {
+      "name": "d4",
+      "expr": "TBD_robo_hole_d",
+      "unit": "mm",
+      "model": true
+    }
+  ],
+  "features": [
+    {
+      "id": 1,
+      "name": "Sketch1",
+      "suppressed": false,
+      "type": "sketch",
+      "plane": {
+        "type": "origin",
+        "name": "XY"
+      },
+      "sketch": {
+        "points": [
+          {
+            "id": "origin",
+            "pos": [
+              0.0,
+              0.0
+            ],
+            "fixed": true
+          },
+          {
+            "id": "p1",
+            "pos": [
+              -60.0,
+              -45.0
+            ],
+            "fixed": false
+          },
+          {
+            "id": "p2",
+            "pos": [
+              60.0,
+              -45.0
+            ],
+            "fixed": false
+          },
+          {
+            "id": "p3",
+            "pos": [
+              60.0,
+              45.0
+            ],
+            "fixed": true,
+            "exprs": {
+              "x": "plate_w/2",
+              "y": "plate_d/2"
+            }
+          },
+          {
+            "id": "p4",
+            "pos": [
+              -60.0,
+              45.0
+            ],
+            "fixed": false
+          },
+          {
+            "id": "p5",
+            "pos": [
+              0.0,
+              0.0
+            ],
+            "fixed": false
+          },
+          {
+            "id": "p6",
+            "pos": [
+              -10.8,
+              -9.200000000000001
+            ],
+            "fixed": false
+          },
+          {
+            "id": "p7",
+            "pos": [
+              10.8,
+              -9.200000000000001
+            ],
+            "fixed": false
+          },
+          {
+            "id": "p8",
+            "pos": [
+              10.8,
+              9.200000000000001
+            ],
+            "fixed": true,
+            "exprs": {
+              "x": "(xiao_w+2*xiao_clearance)/2",
+              "y": "(xiao_d+2*xiao_clearance)/2"
+            }
+          },
+          {
+            "id": "p9",
+            "pos": [
+              -10.8,
+              9.200000000000001
+            ],
+            "fixed": false
+          },
+          {
+            "id": "p10",
+            "pos": [
+              0.0,
+              0.0
+            ],
+            "fixed": false
+          },
+          {
+            "id": "p11",
+            "pos": [
+              50.0,
+              30.0
+            ],
+            "fixed": true,
+            "exprs": {
+              "x": "TBD_robo_hole_dx/2",
+              "y": "TBD_robo_hole_dy/2"
+            }
+          },
+          {
+            "id": "p12",
+            "pos": [
+              -50.0,
+              30.0
+            ],
+            "fixed": true,
+            "exprs": {
+              "x": "-TBD_robo_hole_dx/2",
+              "y": "TBD_robo_hole_dy/2"
+            }
+          },
+          {
+            "id": "p13",
+            "pos": [
+              -50.0,
+              -30.0
+            ],
+            "fixed": true,
+            "exprs": {
+              "x": "-TBD_robo_hole_dx/2",
+              "y": "-TBD_robo_hole_dy/2"
+            }
+          },
+          {
+            "id": "p14",
+            "pos": [
+              50.0,
+              -30.0
+            ],
+            "fixed": true,
+            "exprs": {
+              "x": "TBD_robo_hole_dx/2",
+              "y": "-TBD_robo_hole_dy/2"
+            }
+          }
+        ],
+        "curves": [
+          {
+            "id": "l1",
+            "type": "line",
+            "a": 1,
+            "b": 2,
+            "construction": false
+          },
+          {
+            "id": "l2",
+            "type": "line",
+            "a": 2,
+            "b": 3,
+            "construction": false
+          },
+          {
+            "id": "l3",
+            "type": "line",
+            "a": 3,
+            "b": 4,
+            "construction": false
+          },
+          {
+            "id": "l4",
+            "type": "line",
+            "a": 4,
+            "b": 1,
+            "construction": false
+          },
+          {
+            "id": "l5",
+            "type": "line",
+            "a": 1,
+            "b": 3,
+            "construction": true
+          },
+          {
+            "id": "l6",
+            "type": "line",
+            "a": 2,
+            "b": 4,
+            "construction": true
+          },
+          {
+            "id": "l7",
+            "type": "line",
+            "a": 6,
+            "b": 7,
+            "construction": false
+          },
+          {
+            "id": "l8",
+            "type": "line",
+            "a": 7,
+            "b": 8,
+            "construction": false
+          },
+          {
+            "id": "l9",
+            "type": "line",
+            "a": 8,
+            "b": 9,
+            "construction": false
+          },
+          {
+            "id": "l10",
+            "type": "line",
+            "a": 9,
+            "b": 6,
+            "construction": false
+          },
+          {
+            "id": "l11",
+            "type": "line",
+            "a": 6,
+            "b": 8,
+            "construction": true
+          },
+          {
+            "id": "l12",
+            "type": "line",
+            "a": 7,
+            "b": 9,
+            "construction": true
+          },
+          {
+            "id": "c1",
+            "type": "circle",
+            "c": 11,
+            "r": 1.6,
+            "construction": false
+          },
+          {
+            "id": "c2",
+            "type": "circle",
+            "c": 12,
+            "r": 1.6,
+            "construction": false
+          },
+          {
+            "id": "c3",
+            "type": "circle",
+            "c": 13,
+            "r": 1.6,
+            "construction": false
+          },
+          {
+            "id": "c4",
+            "type": "circle",
+            "c": 14,
+            "r": 1.6,
+            "construction": false
+          }
+        ],
+        "constraints": [
+          {
+            "id": "k1",
+            "type": "horizontal",
+            "l": 0
+          },
+          {
+            "id": "k2",
+            "type": "horizontal",
+            "l": 2
+          },
+          {
+            "id": "k3",
+            "type": "vertical",
+            "l": 1
+          },
+          {
+            "id": "k4",
+            "type": "vertical",
+            "l": 3
+          },
+          {
+            "id": "k5",
+            "type": "midpoint",
+            "p": 5,
+            "l": 4
+          },
+          {
+            "id": "k6",
+            "type": "coincident",
+            "p": 0,
+            "q": 5
+          },
+          {
+            "id": "k7",
+            "type": "horizontal",
+            "l": 6
+          },
+          {
+            "id": "k8",
+            "type": "horizontal",
+            "l": 8
+          },
+          {
+            "id": "k9",
+            "type": "vertical",
+            "l": 7
+          },
+          {
+            "id": "k10",
+            "type": "vertical",
+            "l": 9
+          },
+          {
+            "id": "k11",
+            "type": "midpoint",
+            "p": 10,
+            "l": 10
+          },
+          {
+            "id": "k12",
+            "type": "coincident",
+            "p": 0,
+            "q": 10
+          },
+          {
+            "id": "k13",
+            "type": "diameter",
+            "c": 12,
+            "value": 3.2,
+            "param": "d1"
+          },
+          {
+            "id": "k14",
+            "type": "diameter",
+            "c": 13,
+            "value": 3.2,
+            "param": "d2"
+          },
+          {
+            "id": "k15",
+            "type": "diameter",
+            "c": 14,
+            "value": 3.2,
+            "param": "d3"
+          },
+          {
+            "id": "k16",
+            "type": "diameter",
+            "c": 15,
+            "value": 3.2,
+            "param": "d4"
+          }
+        ],
+        "counters": {
+          "c": 4,
+          "k": 16,
+          "l": 12,
+          "p": 14
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "Extrude1",
+      "suppressed": false,
+      "body_names": [
+        "plate"
+      ],
+      "param_names": [
+        "d5"
+      ],
+      "type": "extrude",
+      "sketch": 1,
+      "profiles": {
+        "type": "curves",
+        "loops": [
+          [
+            "l1",
+            "l2",
+            "l3",
+            "l4"
+          ]
+        ]
+      },
+      "extent": {
+        "distance": "plate_t",
+        "convention": "total_distance",
+        "direction": "positive"
+      },
+      "operation": "new_body"
+    }
+  ],
+  "next_id": 3,
+  "reserved_body_names": [
+    "Body1"
+  ],
+  "next_component_color_index": 0,
+  "materials": {
+    "plate": "PLA"
+  }
+}

@@ -1,0 +1,58 @@
+# CAD: cad/ の設計データを SolidCraft の CLI で STEP にし、体積・質量・Izz が cad/expected.csv と合うか確かめる。
+# cad/ か このファイルが変わった push と手動実行で動く。pytest の CI (ci.yml) とは分けてある。
+# CLI は版と SHA-256 を固定で書く。上げるときは意識して上げる（公式の Release の資産の digest と SHA256SUMS.txt で確かめる）。
+# ubuntu-latest で共有ライブラリが足りるかは、ここで初めて分かる（WSL2 では足りた）。足りなければ ldd の手順で名前が出る。
+name: CAD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cad/**"
+      - "src/physlearn/solidcraft_props.py"
+      - ".github/workflows/cad.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SC_VERSION: "0.44.1"
+  SC_TARBALL: solidcraft-0.44.1-linux-x86_64.tar.gz
+  SC_SHA256: "164097743f6ff11c1eeb90a4313964728955e297689052053e4e5d8d20a64229"
+
+jobs:
+  cad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: SolidCraft の CLI を落として SHA-256 を照合する
+        run: |
+          curl -sSfL --retry 3 -o "$SC_TARBALL" "https://github.com/tangency-labs/solidcraft/releases/download/v${SC_VERSION}/${SC_TARBALL}"
+          echo "${SC_SHA256}  ${SC_TARBALL}" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/sc"
+          tar -xzf "$SC_TARBALL" -C "$RUNNER_TEMP/sc"
+          rm "$SC_TARBALL"
+          echo "$RUNNER_TEMP/sc/solidcraft-${SC_VERSION}-linux-x86_64/bin" >> "$GITHUB_PATH"
+
+      - name: 共有ライブラリが足りているか
+        run: |
+          ldd "$(command -v solidcraft-cli)" | tee ldd.txt
+          if grep -q "not found" ldd.txt; then
+            echo "::error::solidcraft-cli に足りない共有ライブラリがある（上の 'not found'）。apt で入れる手順をこのワークフローに足す"
+            exit 1
+          fi
+          solidcraft-cli --version
+
+      - name: 設計を STEP にして数字を表と比べる
+        run: cad/check.sh cad-out
+
+      - uses: actions/upload-artifact@v7.0.2
+        if: always() # 落ちたときも、書けた所までの STEP と JSON を残す
+        with:
+          name: cad-out
+          path: cad-out/
+          if-no-files-found: warn
+          retention-days: 14

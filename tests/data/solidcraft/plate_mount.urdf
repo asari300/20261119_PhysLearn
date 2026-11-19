@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!-- Exported by SolidCraft; units: m, kg, rad -->
+<robot name="plate_mount">
+  <link name="base_link">
+    <inertial>
+      <origin xyz="-6.496408178703515e-10 -2.3836270411181087e-9 0.0015000001829601145" rpy="0 0 0"/>
+      <mass value="0.038579033861566345"/>
+      <inertia ixx="2.699930579616242e-5" ixy="4.107992985867898e-12" ixz="1.8137685711656985e-13" iyy="4.788635289300287e-5" iyz="-1.1399718234055386e-13" izz="7.482779014742048e-5"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="plate_mount-base.stl"/></geometry>
+      <material name="base_link_color"><color rgba="0.4313725531101227 0.6274510025978088 0.8705882430076599 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="plate_mount-base.stl"/></geometry>
+    </collision>
+  </link>
+</robot>
