@@ -21,7 +21,7 @@
 | USB-C ケーブル | 書き込みとシリアル通信 | 充電専用ケーブルでは通信できない。最初は USB でつなぎ、車を回すときに足すのは極細の USB ケーブルだけ（3.6 節。無線化は USB で 1 周してから、`doc/research/2026-11-19-wireless.md`） |
 
 - **在庫が細い**: XIAO nRF52840 Sense は秋月の通販で残り 8 個（2026-11-19 17:36 時点。13:36 は 9 個）。スイッチサイエンスは 13:36 に売り切れ、17:36 は読めなかった。在庫と価格は動くので、買う前に発注リストと各店で確かめる。
-  次点の XIAO MG24 Sense は同じスケッチの `#if` で切り替える。コンパイルは GitHub Actions の `firmware-mg24` ジョブで通った（main の push、2026-11-19 18:14 JST、run 44494576657。`continue-on-error` のジョブだが、コンパイルの手順の結果は success）。**実機未確認**（書き込み・IMU のアドレス・D0..D3 の PWM・USB は【未確認】）。
+  次点の XIAO MG24 Sense は同じスケッチの `#if` で切り替える。コンパイルは GitHub Actions の `firmware-mg24` ジョブで通った（main の push、2026-11-19 18:14 JST、run 44494576657。`continue-on-error` のジョブだが、コンパイルの手順の結果は success）。MG24 のコアは `printf` の浮動小数が有効でない（`nano.specs` のみ）見込みなので、IMU の行の小数はスケッチ側で整数演算にして `%f` を避けた（`firmware/xiao_imu_drive/fixed_fmt.h`）。**実機未確認**（書き込み・IMU のアドレス・D0..D3 の PWM・USB は【未確認】）。
   保険の XIAO nRF54L15 Sense（在庫あり）は Arduino に第三者のコアが要り、このスケッチでは**確かめていない**。
 
 **最小の構成は XIAO 単体**。モーターをつながなくても IMU のログ（3.5 節の静止ログ）は取れる。
