@@ -33,7 +33,7 @@
 | デッドバンド | dead band | 指令が小さすぎて出力が動かない範囲。モーターでは摩擦が主な原因。 |
 | 飽和 | saturation | 出力や測定が上限に張りつくこと。 |
 | 遅延 | delay / latency | 指令や観測が届くまでの時間の遅れ。通信や処理で生まれる。 |
-| デューティ比 | duty cycle | PWM で ON の時間の割合。この教材の `Command` は -1..1 で、符号が回る向き。 |
+| デューティ比 | duty cycle | PWM で ON の時間の割合。この教材の `Command` は -1..1 で、符号が回る向き。XIAO 側で ±0.6 に切る（09 章）。 |
 | PWM | pulse width modulation | ON と OFF を速く切り替え、その割合で平均の電力を調整する方法。 |
 
 ## 車体
@@ -67,11 +67,11 @@
 
 | 用語 | 英語 | 意味 |
 |---|---|---|
-| ウォッチドッグ | watchdog | 一定時間指令が来ないとモーターを止める仕組み。マイコン側に置く。 |
+| ウォッチドッグ | watchdog | 一定時間指令が来ないとモーターを止める仕組み。マイコン側に置く。この教材のスケッチは 200 ms（09 章）。 |
 | 非常停止 | emergency stop | 手で物理的に動力を切る仕組み。 |
 | LiPo | lithium polymer battery | 軽く強いリチウムポリマー電池。過充電・過放電・ショートで発火のおそれがある。 |
-| MuJoCo | MuJoCo | 接触を含む物理の sim の道具。GPU 無しでも動く。 |
-| Isaac Sim / Isaac Lab | Isaac Sim / Isaac Lab | NVIDIA のロボット sim と、その上で学習させる道具。GPU が要る。 |
+| MuJoCo | MuJoCo | 接触を含む物理の sim の道具。GPU 無しでも動く。この教材は 4.0.1 以上を任意の依存にする（`doc/adr/0001-sim-stack.md`）。 |
+| Isaac Sim / Isaac Lab | Isaac Sim / Isaac Lab | NVIDIA のロボット sim と、その上で学習させる道具。GPU が要る（Isaac Sim 6.2 の最小要件は RTX 4080・RAM 32GB。`doc/research/2026-11-19-software.md`）。 |
 | ROS 2 | Robot Operating System 2 | ロボットの部品（ノード）同士をメッセージでつなぐための仕組み。 |
 | 強化学習 | reinforcement learning | 試行と報酬から方策を学ぶ方法。 |
 | 模倣学習 | imitation learning | 人などの手本の記録から方策を学ぶ方法。 |

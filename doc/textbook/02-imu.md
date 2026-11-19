@@ -73,10 +73,21 @@ ST の LSM6DS3 データシートの値（下の出典）:
 | ±1000 dps | 35 mdps/LSB |
 | ±2000 dps | 70 mdps/LSB |
 
-**要確認**: これは無印 LSM6DS3 のデータシートの表から取った値です。
-LSM6DS3TR-C 自身のデータシートは、今回は取得できませんでした（ST のサイトがタイムアウト）。
-TR-C でも同じと思われますが、推測です。使う前に TR-C のデータシートで確かめてください。
-角速度の範囲の表記（±245 か ±250 か）も TR-C では要確認です。
+この表は無印 LSM6DS3 のデータシートの表から取った値です（出典 1）。
+TR-C については、XIAO 用の Seeed Arduino LSM6DS3 ライブラリ（2.0.8）が TR-C（WHO_AM_I 0x6A）も同じ換算で扱っています（出典 4）。
+ライブラリは加速度を `raw × 0.061 × (範囲 g ÷ 2)` mg、角速度を `raw × 4.375 × (範囲 dps ÷ 125)` mdps で換算し、角速度の範囲の選択肢を 125・245・500・1000・2000 と書いています（245 のときは 4.375 × 2 = 8.75）。
+上の表と一致します。
+【未確認】TR-C のデータシートそのもので表記（±245 か ±250 か）を確かめられていません（ST のサイトは取得がタイムアウト）。ライブラリの表記は ±245 です。
+
+**このスケッチが実際に使う範囲**: 03 章のスケッチ（`firmware/xiao_imu_drive/xiao_imu_drive.ino`）は、範囲も出力レートも設定せず、ライブラリの既定のまま `imu.begin()` を呼びます。既定は次のとおりです（出典 4）。
+
+| 量 | 既定の範囲 | 感度 | センサーの出力レート |
+|---|---|---|---|
+| 加速度 | ±16 g | 0.488 mg/LSB（約 0.0048 m/s^2） | 416 Hz |
+| 角速度 | ±2000 dps | 70 mdps/LSB（約 0.0012 rad/s） | 416 Hz |
+
+スケッチはこれを 10 ms ごと（100 Hz）に読み、`readFloatAccel*` の g に 9.80665 を、`readFloatGyro*` の dps に π/180 を掛けて、m/s^2 と rad/s で送ります。
+ログの値は、すでにこの単位です。下の換算式は、生の値から自分で計算するときのためのものです。
 
 変換は、生の値に感度を掛け、単位を直すだけです。
 
@@ -90,7 +101,7 @@ TR-C でも同じと思われますが、推測です。使う前に TR-C のデ
 
 ST のコミュニティでは、角速度の感度は「フルスケール ÷ 32768」とわずかに違い、データシートの値を使うよう回答されています（出典 3）。
 
-範囲の選び方の目安（推測）: 小さな車のヨー角速度は、速くても数百 dps くらいです。±500 dps あたりなら、はみ出さず、細かさも十分そうです。
+範囲の選び方の目安（推測）: 小さな車のヨー角速度は、速くても数百 dps くらいです。±500 dps あたりなら、はみ出さず、細かさも十分そうです。いまのスケッチは既定の ±2000 dps なので、はみ出す心配はほぼなく、そのぶん 1 LSB が粗くなっています（70 mdps）。範囲を変えるなら、スケッチで `imu.begin()` の前に `imu.settings.gyroRange` を設定します（ライブラリの `settings` の項目。スケッチの変更は 03 章の範囲です）。
 はみ出す（飽和する）と、値が範囲の端で止まり、同定が狂います。ログで端に張りついていないか確かめてください。
 
 ## バイアス・雑音・ドリフト
@@ -129,10 +140,13 @@ ST のコミュニティでは、角速度の感度は「フルスケール ÷ 3
 
 1. 車を平らな机に置く。モーターは止めたまま（duty 0）。
 2. 電源を入れて、数十秒待つ（温度が落ち着くまで。どのくらい待つかは要確認。自分の個体で測るのがよい）。
-3. 30〜60 秒ほど、ログを取る（取り方は 03 章、`python -m physlearn.link`）。ログの列は `LOG_COLUMNS` です。
+3. 30〜60 秒ほど、ログを取る（取り方は 03 章）。例: `python -m physlearn.link still --port /dev/ttyACM0 --out still.csv --seconds 60`（`--seconds` の既定は 10 秒）。
 4. 各列の平均と標準偏差を計算する。
 
-numpy での例（CSV の読み方はログの形式に合わせて直してください）:
+ログの CSV は 1 行目が見出しで、列は `t,ax,ay,az,gx,gy,gz,left,right`（`LOG_COLUMNS`）です。
+`t` は秒、加速度は m/s^2、角速度は rad/s、軸は機体の軸（`--axes` で基板の軸から並べ替えた後）です（`src/physlearn/api.py`、`src/physlearn/link.py`、`doc/protocol.md`）。
+
+numpy での例（見出しの行を列名として読みます）:
 
 ```python
 import numpy as np
@@ -148,6 +162,8 @@ for c in ["ax", "ay", "az", "gx", "gy", "gz"]:
 - `ax`・`ay` の平均は 0 に近く、`az` の平均は +9.81 に近いはずです。ずれは、バイアスか、机の傾きか、IMU の付け方の傾きです。
 - 標準偏差が雑音の大きさです。sim の IMU モデル（04 章）に、この値を入れます。
 - 時間を置いて 2 回測り、平均がどれだけ動くかを見ると、ドリフトの目安になります。
+
+この例は、実機の代わりに `python -m physlearn.mujoco_plant --out` で作った同じ列の CSV で動くことを確かめました（S010）。sim のログは静止ではなく旋回を含むので、`gz` の平均は 0 になりません。
 
 ## 軸の向きを確かめる
 
@@ -190,6 +206,7 @@ for c in ["ax", "ay", "az", "gx", "gy", "gz"]:
 1. ST, LSM6DS3 データシート（alldatasheet.net の写し）. https://www.alldatasheet.net/html-pdf/796179/STMICROELECTRONICS/LSM6DS3/38994/20/LSM6DS3.html
 2. ST, LSM6DS3TR-C 製品ページ. https://www.st.com/content/st_com/en/products/mems-and-sensors/inemo-inertial-modules/lsm6ds3tr-c.html （取得はタイムアウト。中身は未確認）
 3. ST Community, "Is it an error in the datasheet of LSM6DS3TR-C?". https://community.st.com/mems-sensors-48/is-it-an-error-in-the-datasheet-of-lsm6ds3tr-c-19304
+4. Seeed Arduino LSM6DS3 2.0.8 のソース `LSM6DS3.cpp`（`calcAccel`・`calcGyro`・既定の `settings`）。arduino-cli で入れたものを S010 で読んだ。https://github.com/Seeed-Studio/Seeed_Arduino_LSM6DS3
 
 ## 次の章
 
