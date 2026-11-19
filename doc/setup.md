@@ -110,7 +110,7 @@ arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 fir
 
 ### 3.1 Windows 側（usbipd-win）【文書】
 
-出典: https://learn.microsoft.com/en-us/windows/wsl/connect-usb （2026-06-02 更新、usbipd-win 5.0.0 以上が前提）、https://github.com/dorssel/usbipd-win/releases （最新 **5.3.0**、10 月 11 日公開）。
+出典: https://learn.microsoft.com/en-us/windows/wsl/connect-usb （2026-06-02 更新、usbipd-win 5.0.0 以上が前提）、https://github.com/dorssel/usbipd-win/releases （最新 **5.3.0**、2025-10-11 公開。JST 2026-11-19 14:10 に Releases の API で確認）。
 
 ```powershell
 winget install --interactive --exact dorssel.usbipd-win   # 入れる。--interactive を外すと勝手に再起動することがある

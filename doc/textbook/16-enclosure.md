@@ -37,15 +37,15 @@ numpy の `sim.Params` は 16 mm・80 mm、MuJoCo の `diffdrive.xml` は 30 mm�
 
 ## 3. SolidCraft での流れ
 
-SolidCraft はオープンソースのパラメトリック CAD（https://solidcraft.io 、調査は [doc/research/2026-11-19-solidcraft.md](../research/2026-11-19-solidcraft.md)）。
+SolidCraft はオープンソースのパラメトリック CAD（https://solidcraft.io 、GitHub は https://github.com/tangency-labs/solidcraft 。最新の正式版は v0.44.1、2026-11-17 公開、JST 2026-11-19 14:10 に GitHub の API で確認。調査は [doc/research/2026-11-19-solidcraft.md](../research/2026-11-19-solidcraft.md)）。
 **この教材の作者はまだ SolidCraft を動かしていない。以下はすべて【未実行】で、公式の文書に書かれた操作だけを並べた。**
 
-1. ブラウザー版（https://solidcraft.io/app ）を開くか、Windows 側にインストールする。
+1. ブラウザー版（https://solidcraft.io/app ）を開くか、Windows 側にインストールする。Windows のインストーラーは SignPath で署名されているが、本番の証明書が入るまでは SmartScreen の警告が出ることがある、と公式の README が書く。版が毎日のように上がるので、使った版を記録しておく。
 2. XY 平面にスケッチを作り、長方形を描いて、押し出す。スクリプトにすると [cad/plate.json](../../cad/plate.json) の形になる（120 × 90 × 3 mm の板。大きさは今の MJCF の車体に合わせた `assumed` の値）。
    ```bash
    solidcraft-cli run cad/plate.json --out plate.step   # 【未実行】
    ```
-3. 穴は `solid.hole`、円は `sketch.circle.center` のコマンドがある。引数の書き方は文書で確かめられなかったので、ここには書かない。
+3. 穴は `solid.hole`、円は `sketch.circle.center` のコマンドがある。引数は公開のコマンド表 https://docs.solidcraft.io/reference/commands.html にある（例: `sketch.circle.center` は `center: [x,y]`）。試していないので、ここでは見本を書かない。
 4. STL で書き出して 3D プリントする（`file.export_stl`）。書き出したファイルはリポジトリに入れない。
 5. 質量特性: アセンブリの質量特性（`assembly.mass_properties`）か、URDF の書き出し（質量・重心・慣性テンソルが入るとされる）で読む。読んだ値は次の節の計算に 1 部品として入れる。
 
