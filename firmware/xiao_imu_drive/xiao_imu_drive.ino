@@ -25,6 +25,8 @@ const unsigned long WATCHDOG_MS = 200;    // 指令がこれだけ途絶えた�
 const unsigned long PERIOD_US = 10000;    // IMU の送信周期 (100 Hz)
 const float G = 9.80665, DEG = 0.01745329252;
 
+// 0x6A: XIAO の Sense 版の IMU の I2C アドレス（SA0 = GND）。ライブラリの LSM6DS3 の引数の既定も 0x6A だが、
+// LSM6DS3Core 側の既定とコメントは 0x6B なので、取り違えないよう明示する（ライブラリ 2.0.8 のソースで確認）
 LSM6DS3 imu(I2C_MODE, 0x6A);
 bool imu_ok = false;
 unsigned long last_cmd_ms = 0, next_us = 0;
@@ -102,6 +104,10 @@ void setup() {
   pinMode(PIN_R_IN2, OUTPUT);
   setMotors(0, 0);  // 起動時は停止
   Serial.begin(115200);
+  // ±1000 dps: sim で duty 0.5 の旋回が約 9 rad/s (≈515 dps) 出るので ±500 では飽和する。
+  // 35 mdps/LSB ≈ 6.1e-4 rad/s/LSB。既定の ±2000 より 2 倍細かい。ライブラリは 125/245/500/1000/2000 以外を 2000 にする
+  imu.settings.gyroRange = 1000;
+  imu.settings.accelRange = 16;  // ライブラリの既定と同じ。衝突で飽和させないため明示
   imu_ok = imu.begin() == 0;
   next_us = micros();
 }

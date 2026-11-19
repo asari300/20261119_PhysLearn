@@ -68,13 +68,25 @@
   duty 0 やウォッチドッグの停止が「両入力 LOW = 空転」になり、急ブレーキがかからないため。
   duty と回転の速さの関係は直線から外れるが、それは次の章の系同定で測る。
 - PWM は nRF52 コアの `analogWrite` の既定で 8 bit・約 62.7 kHz（16 MHz / 255。コアのソースで確認）。耳には聞こえない。
-- **AE-DRV8835-S の 12 ピンの並びは【未確認】**（秋月の取扱説明書の図がテキストで読めなかった）。基板のシルクと説明書の図で確かめてからつなぐ。
+- **AE-DRV8835-S の 12 ピン（6×2、2.54 mm ピッチ）の並びは【未確認】**。秋月の商品ページ（https://akizukidenshi.com/catalog/g/g109848/ 、2026-11-19 13:55 JST 取得）にはピン名の表が無く、取扱説明書の図はテキストで読めなかった。**基板の印字（シルク）を見て、上の表のピン名どおりにつなぐ**。上の図の並びは説明のためのもので、実物の並びではない。
 - GND は必ず共通にする。共通でないと信号が伝わらない。
 - 前に進めたいのに後ろに回るモーターは、そのモーターの 2 本の線を入れ替える（ソフトで直さない方が分かりやすい）。
 
 ## 3.3 書き込み
 
-使うもの: ボード定義「Seeed nRF52 Boards」（非 mbed 版）と、ライブラリ「Seeed Arduino LSM6DS3」。
+使うもの: ボード定義「Seeed nRF52 Boards」（非 mbed 版、`Seeeduino:nrf52`）と、ライブラリ「Seeed Arduino LSM6DS3」。
+
+**ボード定義を非 mbed 版にした理由と、まだ分からないこと**:
+
+- Seeed の wiki（https://wiki.seeedstudio.com/XIAO_BLE/ 、2026-11-19 13:54 JST 取得）は、Bluetooth と低消費電力には非 mbed 版、
+  「IMU & PDM advanced function」と組み込み機械学習には mbed 版（「Seeed nRF52 mbed-enabled Boards」）を勧めている。
+  非 mbed 版で IMU が使えない、という記述は無い。IMU の wiki（https://wiki.seeedstudio.com/XIAO-BLE-Sense-IMU-Usage/ 、同時刻）はボード定義を指定していない。
+- ライブラリ 2.0.8 は `TARGET_SEEED_XIAO_NRF52840_SENSE` が定義されていると IMU 用の I2C バス `Wire1` を使い、非 mbed 版のコア 1.1.13 の `variant.h` がこのマクロを定義している（S016 の監査と S019 がソース `LSM6DS3.cpp:35-36`・`variant.h:4` で確認）。
+  電源ピン `PIN_LSM6DS3TR_C_POWER` もライブラリが HIGH にする（S009 がソースで確認）。つまり非 mbed 版でも IMU のバスと電源は正しく選ばれる。
+- 非 mbed 版でコンパイルは通る（S019: 58,140 バイト、7%）。**IMU が実際に値を返すかは実機で確かめていない**。
+- **実機で先に確かめること**: 書き込んだら 3.5 節で `I` の行が流れるかを見る。`# ERR imu not found` が続くなら、mbed 版
+  （ボードマネージャの「Seeed nRF52 mbed-enabled Boards」、FQBN は `Seeeduino:mbed:xiaonRF52840Sense`【未確認】）で書き込み直す。
+  mbed 版ではこのスケッチをコンパイルしておらず、`analogWrite` の PWM の周波数も上の 62.7 kHz とは違うかもしれない【未確認】。
 
 ### Arduino IDE
 
@@ -103,17 +115,10 @@ arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 fir
 ## 3.4 WSL2 で USB シリアルを使う
 
 WSL2 の Linux からは、そのままでは USB 機器が見えない。Windows 側の usbipd-win で渡す。
+手順（winget での入れ方、`usbipd list`・`bind` に管理者権限が要ること、WSL のカーネルの条件、
+書き込みで USB の ID が変わって `attach` が外れる件）は **`doc/setup.md` の 3 節**にまとめてある。ここには書かない。
 
-1. Windows に usbipd-win を入れる（PowerShell で `winget install usbipd`）。
-2. 管理者の PowerShell で一覧を見て、XIAO の BUSID（例 `2-3`）を探す。
-   ```powershell
-   usbipd list
-   usbipd bind --busid 2-3        # 初回だけ
-   usbipd attach --wsl --busid 2-3
-   ```
-3. WSL 側で `ls /dev/ttyACM*` に出てくれば成功。読めないときは `sudo usermod -aG dialout $USER` してから入り直す。
-4. 書き込みでブートローダーに入ると USB 機器が付け替わるので、もう一度 `attach` が要ることがある。
-   Windows 側の Arduino IDE で書き込み、WSL ではログ取りだけをする、という分け方でもよい。
+WSL 側で `ls /dev/ttyACM*` に出てくれば成功。Windows 側の Arduino IDE で書き込み、WSL ではログ取りだけをする、という分け方でもよい。
 
 ## 3.5 端末で動作を確かめる
 
@@ -123,6 +128,19 @@ picocom -b 115200 --omap crlf --echo /dev/ttyACM0     # 抜けるのは Ctrl-A C
 
 1. `I 52310 0.012 -0.034 9.806 0.0011 -0.0007 0.0002` のような行が 1 秒に 100 行流れれば IMU は動いている。
    形の説明は `doc/protocol.md`。
+
+   IMU の測定範囲はスケッチの `setup()` で明示している（S019 で決めた。数字はライブラリ 2.0.8 の換算式から）:
+
+   | 量 | 範囲 | 1 LSB | 決めた理由 |
+   |---|---|---|---|
+   | 角速度 | ±1000 deg/s ≈ ±17.5 rad/s | 35 mdps ≈ 6.1×10⁻⁴ rad/s | sim（MuJoCo）で duty 0.5 の旋回が約 9 rad/s（≈ 515 deg/s）。±500 では飽和する。±1000 なら約 1.9 倍の余裕で、既定の ±2000 より 2 倍細かい |
+   | 加速度 | ±16 g | 0.488 mg ≈ 4.8×10⁻³ m/s² | ライブラリの既定と同じ。ぶつかったときに飽和しにくい |
+
+   - 実機の旋回の速さは未確認。duty の上限 0.6 で sim の値に比例すれば約 11 rad/s で、まだ範囲内。
+   - **飽和は PC からは直接分からない**（知らせる行は無い）。範囲を超えると値は上限に張り付く
+     （生の値 32767 × 35 mdps ≈ 1147 deg/s ≈ 20.0 rad/s）。`gz` が ±20.0 付近で平らになっていたら飽和を疑い、duty を下げるか範囲を ±2000 に戻す。
+   - IMU の I2C アドレスは 0x6A（スケッチで明示）。ライブラリの既定はクラスで違い、`LSM6DS3` は 0x6A、下位の `LSM6DS3Core` は 0x6B。
+     実物の 0x6A は Zephyr の基板定義（`xiao_ble_nrf52840_sense.dts` の `reg = <0x6a>`）と一致する。Seeed の回路図で SA0 の接続は見ていない【未確認】。MG24 Sense のアドレスも【未確認】。
 2. **車輪を浮かせてから**、`M 0.3 0.3` と打って Enter。両輪が前に回り、約 0.2 秒で止まる（ウォッチドッグ）。
    人の打つ速さでは指令が途絶えるので、止まるのが正しい。
 3. `M abc` と打つと `# ERR bad line` が返り、モーターは回らない。
