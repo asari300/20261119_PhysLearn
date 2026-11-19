@@ -30,6 +30,8 @@ def fit(log: dict, p: Params) -> dict:
     segs = segments(u)
     i0, j0 = segs[0]
     noise = float(log["gz"][i0 + (j0 - i0) // 2 : j0].std(ddof=1))  # sysid.identify と同じ静止区間の後半
+    if not noise > 0:  # 比 RMSE / 雑音 が inf・NaN になり、判定が意味を失う
+        raise ValueError("静止区間の雑音が 0（雑音なしの sim のログ？）。残差を雑音と比べられない")
     rise, steady, rows = [], [], []
     for i, j in segs[1:]:
         k = i + int(0.3 * (j - i))  # 前 30% を立ち上がり（立ち下がり）、後ろ 30% を定常とみなす（sysid と同じ）

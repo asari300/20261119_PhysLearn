@@ -123,7 +123,10 @@ def main(argv=None) -> None:
         report(s)
         print("gz の Allan 偏差（τ s: rad/s）:", "  ".join(f"{tau:g}: {d:.5f}" for tau, d in allan(log["gz"], s["dt_mean"])))
     elif a.cmd == "turn":
-        bias = float(log["gz"][log["t"] - log["t"][0] < a.still_seconds].mean())
+        still = log["gz"][log["t"] - log["t"][0] < a.still_seconds]
+        if not len(still):
+            raise SystemExit(f"冒頭 {a.still_seconds:g} s にサンプルが無く、バイアスを測れない。--still-seconds を長くする")
+        bias = float(still.mean())
         deg = yaw_deg(log, bias)
         print(f"冒頭 {a.still_seconds:g} s のバイアス {bias:+.5f} rad/s")
         print(f"gz の積分 {deg:+.2f} 度（バイアスを引く前 {yaw_deg(log):+.2f} 度）。左回し（上から見て反時計回り）で正")

@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from physlearn.api import Command
 from physlearn.imu import STAND_IN, allan, fit, main, simulate, stand_in, stats, yaw_deg
@@ -50,3 +51,10 @@ def test_cli_runs(tmp_path, capsys):
     main(["r2s", still, "--out", str(tmp_path / "p.json")])
     out = capsys.readouterr().out
     assert "Allan" in out and "尺度" in out and "直した sim" in out
+
+
+def test_turn_refuses_empty_still_window(tmp_path):
+    still, turn = tmp_path / "s.csv", tmp_path / "t.csv"
+    stand_in(str(still), str(turn), 2.0)
+    with pytest.raises(SystemExit, match="still-seconds"):
+        main(["turn", str(turn), "--still-seconds", "0"])

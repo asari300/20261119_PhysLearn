@@ -42,3 +42,9 @@ def test_spread_known_input():
     assert s["motor_gain"]["ratio"] == pytest.approx(0.5)
     assert s["motor_tau"]["half"] == 0
     assert s["deadband"]["half"] == pytest.approx(0.02)
+
+
+def test_noise_free_log_is_refused():
+    p = replace(HIDDEN, gyro_noise=0.0, accel_noise=0.0)
+    with pytest.raises(ValueError, match="雑音が 0"):
+        fit(as_log(sim_log(SimPlant(p, seed=0))), p)
