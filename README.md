@@ -19,7 +19,7 @@ IMU を載せた Seeed Studio XIAO と小さな 2 輪車で、Physical AI の基
 できない・確かめていない:
 
 - **実機では一度も動かしていない。** 部品はまだ手元に無い。「実機」の結果はすべて代役（隠しパラメータの sim・MuJoCo・偽の XIAO）のもの。
-- XIAO MG24 Sense 向けは、CI でコンパイルは通った（落ちても全体は落とさない設定）。**動作は未確認**で、`printf` の浮動小数が入っておらず IMU の行の数値が空になる見込みがある（コードレビュー 3 巡目）。
+- XIAO MG24 Sense 向けは、CI でコンパイルは通った（落ちても全体は落とさない設定）。コアが `printf` の浮動小数を持たない見込みなので、スケッチの側で `%f` を避けた（[03 章](doc/textbook/03-hardware-firmware.md)）。**動作は実機で未確認。**
 - **Isaac Sim / Isaac Lab は実行していない**（WSL2・GPU 無し・RAM 7 GiB）。手引き（[90 章](doc/textbook/90-isaac-sim-guide.md)）だけ。理由は [ADR-0001](doc/adr/0001-sim-stack.md)。
 - **SolidCraft の GUI とブラウザー版は誰も動かしていない。** MCP の登録はしたが、ツールごとの許可は未設定。
 - **車体は Robo Base ミニ 2WD に決めたが、その寸法は未確認。** sim の寸法とモーター定数は**仮の値**（置き場は [cad/dimensions.csv](cad/dimensions.csv)）。
@@ -28,14 +28,14 @@ IMU を載せた Seeed Studio XIAO と小さな 2 輪車で、Physical AI の基
 
 ## 最短の道
 
-[uv](https://docs.astral.sh/uv/) を入れてから。
+[uv](https://docs.astral.sh/uv/) を入れてから（入れ方は [doc/setup.md](doc/setup.md)。Python 3.12 以上は uv が自動で入れる）。リポジトリを clone して、その根で打つ。
 
 **1. 実機なし（PC だけ）**
 
 ```bash
-uv sync                    # MuJoCo と図も使うなら uv sync --extra mujoco --extra viz
-uv run pytest              # 通ることを確かめる
-uv run physlearn loop-demo # 代役の実機で R2S → S2R を 1 周回す
+uv sync                    # MuJoCo と図も使うなら uv sync --extra mujoco --extra viz（教材の 08・14・16 章が使う）
+uv run pytest              # 通ることを確かめる（約 1.5 分。MuJoCo と図が要る試験は、入れていなければ skip）
+uv run physlearn loop-demo # 代役の実機で R2S → S2R を 1 周回す（約 10 秒）
 ```
 
 続きは教材の [00 章](doc/textbook/00-overview.md) から。`loop-demo` の出力（seed 0）の要点。通過率が 100 % → 42 % と下がるのは、同定で sim が現実に近づき、ばらつきの幅が広がって評価が厳しくなるため（[07 章](doc/textbook/07-loop.md)）:
@@ -127,7 +127,7 @@ uv run physlearn loop-demo # 代役の実機で R2S → S2R を 1 周回す
 
 GitHub Actions（[.github/workflows/](.github/workflows/)）。main への push と手動実行で動く。
 
-- `CI`: 試験（`uv sync --locked` + `uv run pytest`）、スケッチのコンパイル（XIAO nRF52840 Sense、必須）、同（XIAO MG24 Sense、落ちても全体は落とさない）。初回（JST 18:14 に始まり、約 1 分）は全部成功した。
+- `CI`: 試験（`uv sync --locked --extra mujoco --extra viz` + `uv run pytest`）、スケッチのコンパイル（XIAO nRF52840 Sense は必須、XIAO MG24 Sense は落ちても全体は落とさない）、章に貼った出力の検査 `docs`（`python -m physlearn.docs_check --mujoco`）。1 回に約 1 分。2026-11-19 夜の main の実行はすべて成功した。
 - `CAD`: SolidCraft の CLI で `cad/` の設計データを検査する。
 
 ## ライセンス

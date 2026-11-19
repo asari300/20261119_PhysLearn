@@ -114,7 +114,7 @@ V-World は仮想の世界（sim）、R-World は実の世界（実機）です�
 ## 必要なもの
 
 - PC。**GPU は無くてよい。** この教材の sim は numpy で動きます。MuJoCo は任意です。
-- Python と、このリポジトリ（依存は numpy・pyserial、任意で mujoco 4.0.1 以上。`uv sync --extra mujoco`）。
+- [uv](https://docs.astral.sh/uv/)（入れ方は `doc/setup.md`）と、このリポジトリを clone したもの。Python 3.12 以上は uv が入れる。依存は numpy・pyserial、任意で mujoco 4.0.1 以上・matplotlib（`uv sync --extra mujoco --extra viz`。08・14・16 章が使う）。
 - 実機の部品（XIAO、車体、モータードライバー、電池など）。一覧と価格は発注リスト `doc/shopping-list.md` を見てください（税込・送料別、2026-11-19 夕方の値。案は、最小 3,220 円、車体込み 7,603 円（テスター用の 006P 電池を含む）。車体は Robo Base ミニキット 2WD で、寸法は未確認）。価格と在庫はすぐ変わります。XIAO nRF52840 Sense は秋月の通販が残り 8 個でした（18:01）。調査の元は 03 章と `doc/research/2026-11-19-hardware.md` です。
 - USB ケーブル。
 - 机の上の小さな台（車輪を浮かせて試すため。09 章）。

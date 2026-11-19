@@ -44,8 +44,8 @@ uv run physlearn loop-demo   # 1 周の実演（sim → 同定 → ゲイン決�
 | コマンド | かかった時間 | 出力の要点 |
 |---|---|---|
 | `uv sync` | 0.3 秒（キャッシュあり。初回はダウンロードぶん延びる） | numpy, pyserial 3.5, pytest 9.2.0 など |
-| `uv run pytest -q` | 数十秒 | すべて passed（本数は増えていくので書かない） |
-| `uv run physlearn loop-demo` | 約 5 秒 | 公称の sim で決めたゲインは代役で「仕様 NG」、同定した sim で決め直すと「仕様 OK」 |
+| `uv run pytest -q` | 約 1.5 分（この PC で 88〜95 秒。擬似端末の試験が実時間で走る） | すべて passed（本数は増えていくので書かない）。`--extra mujoco --extra viz` を付けないと、それらが要る試験は skip になる |
+| `uv run physlearn loop-demo` | 約 10 秒 | 公称の sim で決めたゲインは代役で「仕様 NG」、同定した sim で決め直すと「仕様 OK」 |
 
 ### 1.3 任意の追加
 

@@ -2,6 +2,9 @@
 
 IMU を載せた XIAO と 2 輪車で、Sim2Real (S2R) と Real2Sim (R2S) を学ぶ教材。
 コマンドはリポジトリの根で `uv sync` を済ませてから打つ。
+実機なしコースを最後まで通すなら、**`uv sync --extra mujoco --extra viz`** で入れる。MuJoCo は 08 章・14 章（MuJoCo の代役の行）・16 章（`python -m physlearn.cad`）が、matplotlib は図を描く `python -m physlearn.plot` が使う。無いと、`mujoco が入っていない` や `No module named 'mujoco'` で止まる。
+章のコマンドには `uv run` を付けていないものがある（14 章の `physlearn ...` と `python -m ...`）。`.venv` を有効にしていなければ `command not found: python` になるので、前に `uv run` を付けて打つ。
+16 章の `solidcraft-cli` は別に入れる道具で、clone しただけでは入っていない。入れていなければ、その行は読むだけでよい（`uv run python -m physlearn.cad` と `solidcraft_props` は CLI なしで動く）。入れ方は [cad-mcp 3 節](../cad-mcp.md)。
 
 ## 章の一覧
 

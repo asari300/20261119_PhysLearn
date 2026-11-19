@@ -14,5 +14,5 @@
 | [textbook/](textbook/README.md) | 教材。索引から読む。図は [textbook/fig/](textbook/fig/README.md) |
 | `physical_ai_isaacsim_poc_ja.md` ほか | 出発点にした 2026-10-22 時点の PoC 設計書とスライド（参考資料。いまの計画とは違う所がある） |
 
-CI は GitHub Actions: [.github/workflows/ci.yml](../.github/workflows/ci.yml)（試験とスケッチのコンパイル）と [.github/workflows/cad.yml](../.github/workflows/cad.yml)（`cad/` の設計データの検査）。
+CI は GitHub Actions: [.github/workflows/ci.yml](../.github/workflows/ci.yml)（試験・スケッチのコンパイル 2 種・章の出力の検査 `docs`）と [.github/workflows/cad.yml](../.github/workflows/cad.yml)（`cad/` の設計データの検査）。
 ライセンスは [../LICENSE.md](../LICENSE.md)（コードは MIT OR Apache-2.0、文章と図は CC BY 4.0）。
