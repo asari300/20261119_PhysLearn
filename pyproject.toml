@@ -3,6 +3,8 @@ name = "physlearn"
 version = "0.1.0"
 description = "Physical AI (Sim2Real & Real2Sim) を XIAO + IMU で学ぶ教材とコード"
 readme = "README.md"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
 authors = [
     { name = "asari300" }
 ]
