@@ -167,7 +167,7 @@ for c in ["ax", "ay", "az", "gx", "gy", "gz"]:
 
 上の図は、実機の代役（sim）を 5 秒止めたときの gz です。0 ではなく 0.08 rad/s のまわりに散らばり、平均がバイアス、ヒストグラムの幅（標準偏差 0.014）が雑音の大きさです。
 
-この例は、実機の代わりに `python -m physlearn.mujoco_plant --out` で作った同じ列の CSV で動くことを確かめました（S010）。sim のログは静止ではなく旋回を含むので、`gz` の平均は 0 になりません。
+この例は、実機の代わりに `uv run --extra mujoco physlearn sim-log --plant mujoco mj.csv` で作った同じ列の CSV で動くことを確かめました。sim のログは静止ではなく旋回を含むので、`gz` の平均は 0 になりません。
 
 ## 軸の向きを確かめる
 
@@ -210,7 +210,7 @@ for c in ["ax", "ay", "az", "gx", "gy", "gz"]:
 1. ST, LSM6DS3 データシート（alldatasheet.net の写し）. https://www.alldatasheet.net/html-pdf/796179/STMICROELECTRONICS/LSM6DS3/38994/20/LSM6DS3.html
 2. ST, LSM6DS3TR-C 製品ページ. https://www.st.com/content/st_com/en/products/mems-and-sensors/inemo-inertial-modules/lsm6ds3tr-c.html （取得はタイムアウト。中身は未確認）
 3. ST Community, "Is it an error in the datasheet of LSM6DS3TR-C?". https://community.st.com/mems-sensors-48/is-it-an-error-in-the-datasheet-of-lsm6ds3tr-c-19304
-4. Seeed Arduino LSM6DS3 2.0.8 のソース `LSM6DS3.cpp`（`calcAccel`・`calcGyro`・既定の `settings`）。arduino-cli で入れたものを S010 で読んだ。https://github.com/Seeed-Studio/Seeed_Arduino_LSM6DS3
+4. Seeed Arduino LSM6DS3 2.0.8 のソース `LSM6DS3.cpp`（`calcAccel`・`calcGyro`・既定の `settings`）。arduino-cli で入れたものを読んだ。https://github.com/Seeed-Studio/Seeed_Arduino_LSM6DS3
 
 ## 次の章
 
