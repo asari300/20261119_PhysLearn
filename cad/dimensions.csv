@@ -5,7 +5,7 @@ XIAO nRF52840 Sense,imu_offset_on_board,【未確認】,mm,,,,,LSM6DS3TR-C の�
 AE-DRV8835-S,board_xy,【未確認】,mm,,https://akizukidenshi.com/catalog/g/g109848/,,,取付穴の有無も【未確認】
 AE-DRV8835-S,mass,【未確認】,g,,,,,
 Cytron Robo Base 2WD,plate_xy,【未確認】,mm,,https://www.switch-science.com/products/10708,,,上板の外形と取付穴の位置・径。図面は見つけていない
-Cytron Robo Base 2WD,wheel_radius,【未確認】,mm,,,,,
+Cytron Robo Base 2WD,wheel_radius,【未確認】,mm,,,,,測ったら measured 欄に入れる。cad.dimension() が measured > datasheet > cad > assumed の順で読む
 Cytron Robo Base 2WD,track,【未確認】,mm,,,,,左右の車輪の接地点の間隔
 Cytron Robo Base 2WD,axle_to_caster_x,【未確認】,mm,,,,,
 Cytron Robo Base 2WD,mass,【未確認】,g,,,,,モーター 2 個と車輪込み
@@ -14,8 +14,8 @@ Cytron Robo Base 2WD,mass,【未確認】,g,,,,,モーター 2 個と車輪込�
 単3 アルカリ電池,mass_each,【未確認】,g,,,,,4 本で約 0.1 kg と置いた（assumed）
 ブレッドボード EIC-801,board_xyz,【未確認】,mm,,https://akizukidenshi.com/catalog/g/g100315/,,,
 ブレッドボード EIC-801,mass,【未確認】,g,,,,,
-sim の今の値 (numpy Params),wheel_radius,16,mm,assumed,src/physlearn/sim.py,,,MJCF と食い違う。実物を測っていない
-sim の今の値 (numpy Params),track,80,mm,assumed,src/physlearn/sim.py,,,MJCF と食い違う
+sim の今の値 (numpy Params),wheel_radius,16,mm,assumed,src/physlearn/sim.py,,,MJCF と食い違う。実物を測っていない。【S041 で Params の既定値は 30 mm に変えた。この行の値は変更前で古い】
+sim の今の値 (numpy Params),track,80,mm,assumed,src/physlearn/sim.py,,,MJCF と食い違う。【S041 で Params の既定値は 100 mm に変えた。この行の値は変更前で古い】
 sim の今の値 (MJCF),wheel_radius,30,mm,assumed,src/physlearn/models/diffdrive.xml,,,
 sim の今の値 (MJCF),track,100,mm,assumed,src/physlearn/models/diffdrive.xml,,,
 sim の今の値 (MJCF),chassis_box_xyz,120 x 90 x 20,mm,assumed,src/physlearn/models/diffdrive.xml,,,

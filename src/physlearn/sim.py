@@ -12,9 +12,9 @@ G = 9.81
 
 @dataclass(frozen=True)
 class Params:
-    wheel_radius: float = 0.016  # m
-    track: float = 0.08  # m（左右の車輪の間隔）
-    motor_gain: float = 30.0  # 車輪の角速度 rad/s / duty（デッドバンドを除いた分）
+    wheel_radius: float = 0.030  # m（MJCF と同じ。cad/dimensions.csv の「sim の今の値 (MJCF)」。仮の値）
+    track: float = 0.100  # m（左右の車輪の間隔。同上）
+    motor_gain: float = 20.0  # 車輪の角速度 rad/s / duty（デッドバンドを除いた分）
     motor_tau: float = 0.08  # s（一次遅れの時定数）
     deadband: float = 0.05  # duty。これ以下では回らない
     gyro_bias: float = 0.0  # rad/s（gz のバイアス）

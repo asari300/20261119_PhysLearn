@@ -6,7 +6,8 @@ from physlearn.sim import Params, SimPlant, id_experiment
 
 # loop-demo で実機の代役にする「隠しパラメータ」。公称 Params() とわざとずらしてある。
 # 3 rad/s に要る duty 3/8 + 0.15 = 0.525 が安全ゲートの上限 0.6 に収まるようにしてある。
-HIDDEN = Params(motor_gain=20.0, motor_tau=0.2, deadband=0.15, gyro_bias=0.08, gyro_noise=0.015)
+# motor_gain 40/3 は yaw_gain 8 rad/s になる値（r・b は Params と同じ 0.030・0.100 m）。
+HIDDEN = Params(motor_gain=40 / 3, motor_tau=0.2, deadband=0.15, gyro_bias=0.08, gyro_noise=0.015)
 PLANTS = ("sim", "hidden", "mujoco")
 
 

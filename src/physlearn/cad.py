@@ -6,10 +6,15 @@ CAD が質量特性（質量・重心・重心回りの Izz）を出せるなら
     python -m physlearn.cad        # 既定の車体の質量特性と、電池・IMU を動かした MuJoCo の結果を表示
 """
 
+import csv
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 MODEL = Path(__file__).parent / "models" / "diffdrive.xml"
+TABLE = Path(__file__).parents[2] / "cad" / "dimensions.csv"
+SOURCES = ("datasheet", "cad", "assumed")  # measured 欄が最優先。続いて value の source 欄がこの順
+# 車輪半径・トレッドを探す行。実物の行（測れば入る）が先、無ければ sim の今の値（assumed）
+WHEEL_PARTS = ("Cytron Robo Base 2WD", "sim の今の値 (MJCF)")
 
 
 def part_izz(shape: str, m: float, size) -> float:
@@ -39,10 +44,49 @@ DEFAULT_PARTS = [
 ]
 
 
-def to_mjcf(imu=(0.0, 0.0, 0.0), extra=()) -> str:
-    """diffdrive.xml を書き換えた文字列。imu: IMU の site の位置 [m]、extra: 車体に足す直方体 [(質量, (x,y,z), (sx,sy,sz))]。"""
+def dimension(item: str, parts=WHEEL_PARTS, table=TABLE) -> float:
+    """表から item の値 [m] を返す。優先順は measured > datasheet > cad > assumed、同順なら parts の前のほう。
+
+    数として読めない行（【未確認】など）は無いものとする。どの行にも値が無ければ KeyError。
+    """
+    best = None
+    with open(table, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            if r["part"] not in parts or r["item"] != item:
+                continue
+            for rank, text in ((0, r["measured"]), (1 + SOURCES.index(r["source"]) if r["source"] in SOURCES else 9, r["value"])):
+                try:
+                    v = float(text)
+                except ValueError:
+                    continue
+                if r["unit"] != "mm":
+                    raise ValueError(f"{item}: 単位 {r['unit']!r}（mm のみ）")
+                key = (rank, parts.index(r["part"]))
+                if best is None or key < best[0]:
+                    best = (key, v / 1000)
+    if best is None:
+        raise KeyError(item)
+    return best[1]
+
+
+def to_mjcf(imu=(0.0, 0.0, 0.0), extra=(), wheel_radius=None, track=None, table=TABLE) -> str:
+    """diffdrive.xml を書き換えた文字列。imu: IMU の site の位置 [m]、extra: 車体に足す直方体 [(質量, (x,y,z), (sx,sy,sz))]。
+
+    車輪半径とトレッドは、指定が無ければ寸法表（`dimension`）から。車輪が床に着くよう車体の高さとキャスターの z も合わせる。
+    """
+    r = dimension("wheel_radius", table=table) if wheel_radius is None else wheel_radius
+    b = dimension("track", table=table) if track is None else track
     root = ET.parse(MODEL).getroot()
     chassis = root.find(".//body[@name='chassis']")
+    chassis.set("pos", f"0 0 {r}")
+    for g in ("caster_front", "caster_rear"):  # 球の半径 0.01 の底が床に着く高さ
+        c = chassis.find(f"geom[@name='{g}']")
+        x = c.get("pos").split()[0]
+        c.set("pos", f"{x} 0 {0.01 - r}")
+    for name, side in (("left_wheel", 1), ("right_wheel", -1)):
+        w = chassis.find(f"body[@name='{name}']")
+        w.set("pos", f"0 {side * b / 2} 0")
+        w.find("geom").set("size", str(r))
     chassis.find("site[@name='imu']").set("pos", " ".join(map(str, imu)))
     for m, pos, size in extra:
         ET.SubElement(chassis, "geom", type="box", mass=str(m), contype="0", conaffinity="0",
