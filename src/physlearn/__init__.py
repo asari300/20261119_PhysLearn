@@ -28,14 +28,14 @@ def make_plant(name: str, base: Params = Params(), seed: int = 0):
     return SimPlant(HIDDEN if name == "hidden" else base, seed=seed)
 
 
-def sim_log(plant, dt: float = 0.01) -> list:
-    """同定用の開ループ指令列を安全ゲート越しに流し、ログの行を返す。"""
+def sim_log(plant, dt: float = 0.01, rows: list | None = None) -> list:
+    """同定用の開ループ指令列を安全ゲート越しに流し、ログの行を返す。rows を渡すと、そこに行を足す（途中で失敗しても残る）。"""
     from physlearn.control import SafetyGate
     from physlearn.log import row
 
     gate = SafetyGate()
     obs = plant.reset()
-    rows = []
+    rows = [] if rows is None else rows
     for c in id_experiment(dt):
         was = gate.tripped
         cmd = gate(c, obs, dt)
