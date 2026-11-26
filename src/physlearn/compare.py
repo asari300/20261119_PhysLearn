@@ -123,7 +123,10 @@ def holdout(log: dict) -> tuple[dict, dict]:
 
 
 def load(path: str) -> Params:
-    return apply(Params(), identify(read_csv(path))) if path.endswith(".csv") else Params.load(path)
+    try:
+        return apply(Params(), identify(read_csv(path))) if path.endswith(".csv") else Params.load(path)
+    except ValueError as e:
+        raise ValueError(f"{path}: {e}") from None     # spread は何本も読むので、どのファイルかを言う
 
 
 def spread(ps: list[Params]) -> dict:
