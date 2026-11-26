@@ -133,6 +133,35 @@ def test_id_failure_keeps_the_rows_so_far(fake, monkeypatch, tmp_path):
     assert out.read_text().count("\n") == 51
 
 
+def test_run_failure_keeps_the_rows_so_far(fake, monkeypatch, tmp_path):
+    """run の途中で通信の例外が出ても、その回までの行を --out に残す（S129、問題 38）。停止は書くより先に届いている。"""
+    import physlearn.link as link
+
+    class Dies(SerialPlant):  # 51 回目の step の読み取りで失敗する（step の except が停止を送る所を通すため、_next で投げる）
+        def step(self, cmd, dt):
+            self.n += 1
+            return super().step(cmd, dt)
+
+        def _next(self):
+            if self.n > 50:
+                raise TimeoutError("USB が抜けた")
+            return super()._next()
+
+        n = 0
+
+    duty_at_write = []
+    write_csv = link.write_csv
+    monkeypatch.setattr(link, "write_csv", lambda *a: (duty_at_write.append(fake.duty), write_csv(*a))[1])
+    monkeypatch.setattr(link, "open_port", lambda parser, port, **kw: fake.ser)
+    monkeypatch.setattr(link, "SerialPlant", lambda **kw: Dies(**kw))
+    out = tmp_path / "run.csv"
+    with pytest.raises(TimeoutError):
+        main(["run", "--port", "virtual", "--tc", "0.15", "--seconds", "1.0", "--out", str(out)])
+    assert out.read_text().count("\n") == 51  # ヘッダー + 50 行
+    assert duty_at_write == [(0.0, 0.0)]
+    wait_stopped(fake)
+
+
 def test_reset_waits_for_rotation_to_stop(fake, capsys):
     def spin_then_reset(settle):
         with SerialPlant(ser=fake.ser, settle=settle) as p:
