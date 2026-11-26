@@ -24,6 +24,7 @@ log/local/ から worktree の log/sessions/ にコピーし、`--check` で取�
 from __future__ import annotations
 
 import argparse
+import functools
 import getpass
 import gzip
 import json
@@ -58,6 +59,7 @@ MAX_TOOL_INPUT_CHARS = 600
 
 # --------------------------------------------------------------------------- 伏せ字
 
+@functools.lru_cache(maxsize=None)              # redact を呼ぶたびに /mnt/c/Users を読み直さない（S126 #1）
 def _local_names() -> set[str]:
     """伏せ字にするローカルのユーザー名。ホームディレクトリ名とログイン名。"""
     names = {Path.home().name}
@@ -109,8 +111,8 @@ REDACTIONS: list[tuple[re.Pattern[str], str]] = [
 def redact(text: str) -> str:
     for pat, rep in REDACTIONS:
         text = pat.sub(rep, text)
-    for name in _local_names():                  # slug（-home-<user>-...）や tmp パスに残る分
-        text = re.sub(re.escape(name), "<user>", text)
+    for name in _local_names():                  # slug（-home-<user>-...）や tmp パスに残る分。大文字小文字は区別しない
+        text = re.sub(re.escape(name), "<user>", text, flags=re.I)
     return text
 
 
@@ -120,7 +122,7 @@ def leftovers(text: str) -> list[str]:
     for pat, _ in REDACTIONS:
         found += [m.group(0) for m in pat.finditer(text) if "<redacted>" not in m.group(0)]
     for name in _local_names():
-        if name in text:
+        if name.lower() in text.lower():
             found.append(name)
     return found
 
@@ -196,8 +198,12 @@ def blocks(message: dict) -> list:
 
 
 def clip(s: str, n: int) -> str:
-    s = redact(s.rstrip())                       # 切る前に伏せ字。境目をまたぐ断片が残らないように
-    return s if len(s) <= n else s[:n] + f"\n… （残り {len(s) - n:,} 字は生ログを参照）"
+    s = s.rstrip()
+    # 境目をまたぐ断片が残らないよう、切る前に伏せ字を通す。ただし全文ではなく頭から n + 256 字まで（全文だと
+    # メールの規則が長い英数字の連なりで 2 乗の時間になる、S126 #2）。256 字より長い 1 つの秘密が境目をまたぐと断片が残る。
+    if len(s) <= n:
+        return redact(s)
+    return redact(s[:n + 256])[:n] + f"\n… （残り {len(s) - n:,} 字は生ログを参照）"
 
 
 def render_user(rec: dict) -> list[str]:
