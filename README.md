@@ -34,7 +34,7 @@ IMU を載せた Seeed Studio XIAO と小さな 2 輪車で、Physical AI の基
 
 ```bash
 uv sync                    # MuJoCo と図も使うなら uv sync --extra mujoco --extra viz（教材の 08・14・16 章が使う）
-uv run pytest              # 通ることを確かめる（約 1 分。MuJoCo と図が要る試験は、入れていなければ skip）
+uv run pytest              # 通ることを確かめる（約 30 秒。MuJoCo と図が要る試験は、入れていなければ skip）
 uv run physlearn loop-demo # 代役の実機で R2S → S2R を 1 周回す（約 10 秒）
 ```
 
