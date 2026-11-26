@@ -44,12 +44,16 @@ def test_jog_sign(fake):
     wait_stopped(fake)
 
 
-def test_args_rejected():
-    for bad in (["--target", "9"], ["--target", "nan"], ["--seconds", "10"], ["--tc", "0"], ["--seconds", "0.004"], ["--dt", "0.001"]):  # dt < 0.01 は秒数の上限が効かなくなる
+def test_args_rejected(capsys):
+    # SystemExit だけ見ると、ポートを開く段の失敗でも通る。引数の確認の文に、悪い引数の名前が出ること（S126 #4）
+    cases = [("run", ["--target", "9"]), ("run", ["--target", "nan"]), ("run", ["--seconds", "10"]), ("run", ["--tc", "0"]),
+             ("run", ["--seconds", "0.004"]), ("run", ["--dt", "0.001"]),  # dt < 0.01 は秒数の上限が効かなくなる
+             ("run", ["--dt", "0.5"]),  # dt が大きいと round で切り上がり、jog の上限 1.0 s が 1.3 s まで超えた
+             ("jog", ["--left", "0.9"])]
+    for mode, bad in cases:
         with pytest.raises(SystemExit):
-            main(["run", "--port", "/dev/null-none", *bad])
-    with pytest.raises(SystemExit):
-        main(["jog", "--port", "/dev/null-none", "--left", "0.9"])
+            main([mode, "--port", "/dev/null-none", *bad])
+        assert bad[0] in capsys.readouterr().err.split("error:")[-1], bad  # usage の行にも引数名が出るので、error: の後ろを見る
 
 
 def wait_stopped(f):
