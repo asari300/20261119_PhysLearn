@@ -44,10 +44,13 @@ python3 .claude/hooks/save_session_log.py --check log/sessions/*.md
 git add -A && git status --porcelain     # 意図しない差分が無いか読む
 # 足した行を、セッション記録と同じ規則（フックの REDACTIONS・ローカルのユーザー名・Windows のプロファイル名）で検査する
 F=$(mktemp) && git diff --cached -U0 | grep '^+' | cut -c2- > "$F"  # 行頭の + を落とす（メールの規則に + が入る）
-python3 .claude/hooks/save_session_log.py --check "$F" && echo "漏洩の疑い 0 件" || echo "漏洩の疑いあり。止める"
+# 空のファイル（git diff の失敗など）を検査して「0 件」と出さないよう、-s で先に見る
+[ -s "$F" ] && python3 .claude/hooks/save_session_log.py --check "$F" && echo "漏洩の疑い 0 件" || echo "漏洩の疑いあり、または足した行が空。止める"
 rm -f "$F"
 git commit                               # 日本語で「SNNN: 何を・なぜ」
 ```
+
+止まったとき: 出るのは当たった文字列だけでファイル名も行も出ない。`git diff --cached | grep -nF '<当たった文字列>'` で場所を探す。例の値（`example.com`、名前の代わりの `<名前>` など）だけなら、理由を作業記録に書いて進めてよい。本物のメール・パス・名前・トークンなら、止めて直す。
 
 ## 5. main に --no-ff でマージする
 

@@ -120,7 +120,7 @@ def main(argv=None) -> None:
     r.add_argument("--out", required=True)
     a = ap.parse_args(argv)
     log = read_csv(a.csv)
-    if a.cmd != "turn" and len(log["t"]) < 2:
+    if len(log["t"]) < (1 if a.cmd == "turn" else 2):   # turn は 1 行でも通る（積分は 0 度）
         raise SystemExit(NO_SAMPLES)
 
     if a.cmd == "still":

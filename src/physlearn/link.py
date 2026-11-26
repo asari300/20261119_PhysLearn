@@ -248,7 +248,8 @@ def run_loop(plant: SerialPlant, ctrl_factory, target: float, seconds: float, dt
     """+target → -target の 2 回、control.run で回す（正味の回転を 0 に近づけ、ケーブルをねじらない）。
 
     返り値: (ログの行, [(符号, metrics), ...], 作動の理由)。評価は gz からバイアスを引いたもの（実機には真値が無い）。
-    安全ゲートが作動したら、そこで止めて（次の回に進まず）理由を返す。作動しなければ理由は ""。例外は投げないので、集めた行は呼び出し側が書ける。
+    安全ゲートが作動したら、そこで止めて（次の回に進まず）理由を返す。作動しなければ理由は ""。ゲートの作動では例外を投げないので、集めた行は呼び出し側が書ける。
+    通信の例外（USB が抜けた、など）はそのまま上がり、その回までの行は返らない（`id` の sim_log のようには残らない）。
     """
     from physlearn.control import SafetyGate, metrics, run
 
@@ -261,8 +262,10 @@ def run_loop(plant: SerialPlant, ctrl_factory, target: float, seconds: float, dt
         for _ in range(round(REST_S / dt)):
             plant.step(Command(0.0, 0.0), dt)
         rows += r
-        if gate.tripped:
-            return rows, res, gate.tripped
+        # ゲートは step の前の観測しか見ないので、各回の最後のサンプルはここで同じ gz_limit で見る
+        why = gate.tripped or ("" if np.all(np.abs(y) <= gate.gz_limit) else f"|gz| > {gate.gz_limit}（最後のサンプル）")
+        if why:
+            return rows, res, why
         res.append((sign, metrics(t, sign * (y - ctrl.bias), target)))
     return rows, res, ""
 
@@ -277,7 +280,7 @@ def main(argv=None) -> None:
     p.add_argument("--port", required=True, help="例 /dev/ttyACM0")
     p.add_argument("--out", help="出力 CSV（still・id では必須）")
     p.add_argument("--axes", default="x,y,z", help="機体 x,y,z に当たる基板の軸（符号つき）")
-    p.add_argument("--dt", type=float, default=0.01)
+    p.add_argument("--dt", type=float, default=0.01, help="制御の周期 [s]（0.01〜0.1）")
     p.add_argument("--seconds", type=float, help=f"長さ。still 10 / jog 0.5（上限 {JOG_MAX_S}）/ run 1 回ぶん 2.0（上限 {RUN_MAX_S}）")
     p.add_argument("--left", type=float, default=0.0, help="jog の左 duty")
     p.add_argument("--right", type=float, default=0.0, help="jog の右 duty")
@@ -291,9 +294,10 @@ def main(argv=None) -> None:
     a.target = TARGET if a.target is None else a.target
     smax = {"jog": JOG_MAX_S, "run": RUN_MAX_S}.get(a.mode, 3600)
     # `not (a < x < b)` の形で NaN も弾く
-    # dt の下限はマイコンの送信周期 0.01 s。これより短いと 1 step が dt より長くなり、秒数の上限が効かない
-    if not 0.01 <= a.dt < 1:
-        p.error(f"--dt は 0.01〜1 秒（今 {a.dt}）")
+    # dt の下限はマイコンの送信周期 0.01 s。これより短いと 1 step が dt より長くなり、秒数の上限が効かない。
+    # 上限 0.1 s は round(seconds / dt) の切り上がりを dt/2 以内に抑える（1 秒だと jog の上限 1.0 s が 1.3 s まで超えた）
+    if not 0.01 <= a.dt <= 0.1:
+        p.error(f"--dt は 0.01〜0.1 秒（今 {a.dt}）")
     if not a.dt <= a.seconds <= smax:
         p.error(f"--seconds は --dt（{a.dt}）以上 {smax} 秒以下（今 {a.seconds}）")
     try:

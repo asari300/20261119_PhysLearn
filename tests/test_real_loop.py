@@ -44,12 +44,16 @@ def test_jog_sign(fake):
     wait_stopped(fake)
 
 
-def test_args_rejected():
-    for bad in (["--target", "9"], ["--target", "nan"], ["--seconds", "10"], ["--tc", "0"], ["--seconds", "0.004"], ["--dt", "0.001"]):  # dt < 0.01 は秒数の上限が効かなくなる
+def test_args_rejected(capsys):
+    # SystemExit だけ見ると、ポートを開く段の失敗でも通る。引数の確認の文に、悪い引数の名前が出ること（S126 #4）
+    cases = [("run", ["--target", "9"]), ("run", ["--target", "nan"]), ("run", ["--seconds", "10"]), ("run", ["--tc", "0"]),
+             ("run", ["--seconds", "0.004"]), ("run", ["--dt", "0.001"]),  # dt < 0.01 は秒数の上限が効かなくなる
+             ("run", ["--dt", "0.5"]),  # dt が大きいと round で切り上がり、jog の上限 1.0 s が 1.3 s まで超えた
+             ("jog", ["--left", "0.9"])]
+    for mode, bad in cases:
         with pytest.raises(SystemExit):
-            main(["run", "--port", "/dev/null-none", *bad])
-    with pytest.raises(SystemExit):
-        main(["jog", "--port", "/dev/null-none", "--left", "0.9"])
+            main([mode, "--port", "/dev/null-none", *bad])
+        assert bad[0] in capsys.readouterr().err.split("error:")[-1], bad  # usage の行にも引数名が出るので、error: の後ろを見る
 
 
 def wait_stopped(f):
@@ -142,3 +146,17 @@ def test_reset_waits_for_rotation_to_stop(fake, capsys):
     slow = spin_then_reset(True)
     assert slow.t == 0.0 and abs(slow.gz - HIDDEN.gyro_bias) < 0.1  # バイアス 0.08 の個体でも「止まった」と判定できる
     assert capsys.readouterr().err == ""  # 2 s のタイムアウトの警告は出ていない
+
+
+def test_run_loop_checks_the_last_sample(fake):
+    """ゲートは step の前の観測しか見ない。最後のサンプルだけ gz が閾値超えでも、次の回に進まない（S126 #6）。"""
+    class LastSpike(SerialPlant):
+        def step(self, cmd, dt):
+            o = super().step(cmd, dt)
+            self.n = getattr(self, "n", 0) + 1
+            return o if self.n != 200 else type(o)(o.t, o.ax, o.ay, o.az, o.gx, o.gy, 100.0)   # 1 回目（2.0 s）の最後
+
+    with LastSpike(ser=fake.ser) as p:
+        rows, res, why = run_loop(p, lambda: design(Params(), TC), 3.0, 2.0)
+    assert "最後のサンプル" in why and "|gz| >" in why
+    assert res == [] and len(rows) == 200     # 2 回目に進んでいない

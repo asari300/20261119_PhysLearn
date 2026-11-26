@@ -86,4 +86,4 @@ def test_cli_refusal_is_one_line_for_fit_holdout_spread(tmp_path):
     for args, msg in ((["fit", "still.csv", "p.json"], NO_MOVE), (["holdout", "still.csv"], NO_MOVE), (["spread", "short.csv", "p.json"], NO_STILL)):
         with pytest.raises(SystemExit) as e:
             main([str(tmp_path / x) if x.endswith((".csv", ".json")) else x for x in args])
-        assert str(e.value) == msg
+        assert str(e.value) == (f"{tmp_path / 'short.csv'}: {msg}" if args[0] == "spread" else msg)  # spread はどのファイルかを言う

@@ -72,3 +72,6 @@ def test_stats_refuses_short_log_with_a_sentence(tmp_path):
             p.write_text(text)
             with pytest.raises(SystemExit, match="2 行未満"):
                 main([cmd, str(p), *(["--out", str(tmp_path / "x.json")] if cmd == "r2s" else [])])
+    p.write_text(",".join(LOG_COLUMNS) + "\n")      # turn は 1 行でも通るが、見出しだけは文で断る（S126 #7）
+    with pytest.raises(SystemExit, match="2 行未満"):
+        main(["turn", str(p)])
