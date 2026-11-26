@@ -291,8 +291,9 @@ def main(argv=None) -> None:
     a.target = TARGET if a.target is None else a.target
     smax = {"jog": JOG_MAX_S, "run": RUN_MAX_S}.get(a.mode, 3600)
     # `not (a < x < b)` の形で NaN も弾く
-    if not 0 < a.dt < 1:
-        p.error(f"--dt は 0〜1 秒（今 {a.dt}）")
+    # dt の下限はマイコンの送信周期 0.01 s。これより短いと 1 step が dt より長くなり、秒数の上限が効かない
+    if not 0.01 <= a.dt < 1:
+        p.error(f"--dt は 0.01〜1 秒（今 {a.dt}）")
     if not a.dt <= a.seconds <= smax:
         p.error(f"--seconds は --dt（{a.dt}）以上 {smax} 秒以下（今 {a.seconds}）")
     try:

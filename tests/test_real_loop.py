@@ -45,7 +45,7 @@ def test_jog_sign(fake):
 
 
 def test_args_rejected():
-    for bad in (["--target", "9"], ["--target", "nan"], ["--seconds", "10"], ["--tc", "0"], ["--seconds", "0.004"]):
+    for bad in (["--target", "9"], ["--target", "nan"], ["--seconds", "10"], ["--tc", "0"], ["--seconds", "0.004"], ["--dt", "0.001"]):  # dt < 0.01 は秒数の上限が効かなくなる
         with pytest.raises(SystemExit):
             main(["run", "--port", "/dev/null-none", *bad])
     with pytest.raises(SystemExit):
