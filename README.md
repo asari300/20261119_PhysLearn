@@ -38,7 +38,7 @@ uv run pytest              # 通ることを確かめる（約 1 分。MuJoCo �
 uv run physlearn loop-demo # 代役の実機で R2S → S2R を 1 周回す（約 10 秒）
 ```
 
-続きは教材の [00 章](doc/textbook/00-overview.md) から。`loop-demo` の出力（seed 0）の要点。通過率が 100 % → 42 % と下がるのは、同定で sim が現実に近づき、ばらつきの幅が広がって評価が厳しくなるため（[07 章](doc/textbook/07-loop.md)）。
+続きは教材の [00 章](doc/textbook/00-overview.md) から。`loop-demo` の出力（seed 0）の要点。通過率が 100 % → 42 % と下がるのは、同定で sim が現実に近づき、ばらつきの幅が広がって評価が厳しくなるため（[07 章](doc/textbook/07-loop.md)）:
 
 ```text
 [前 (公称の sim)] tc=0.08  sim での通過率 100%  代役で: 整定 0.64 s  行き過ぎ 5.8 %  定常偏差 0.081 rad/s  仕様 NG

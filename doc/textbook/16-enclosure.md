@@ -83,7 +83,7 @@ SolidCraft はオープンソースのパラメトリック CAD（https://solidc
 uv run python -m physlearn.cad
 ```
 
-実際に走らせた出力（JST 2026-11-19 13:59）。
+実際に走らせた出力（JST 2026-11-19 13:59）:
 
 ```
 既定の車体: 質量 0.290 kg、重心 x +0.000 m、Izz 5.831e-04 kg m^2
