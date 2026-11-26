@@ -16,7 +16,7 @@
 
 1. **`uv run pytest` が通るか。** 通れば Python 側の環境は正常。落ちたら下の「環境」へ。✔ 再現（通る）
 2. **偽の XIAO で同じコマンドが動くか。** 端末 1 で `uv run python -m physlearn.fakexiao`、表示された `/dev/pts/N` を端末 2 の `--port` に入れる（[12 章](textbook/12-fake-xiao.md)）。偽物で動き、実機で動かないなら、疑うのは配線・ポート・ボード・書き込み。PC 側のコードではない。✔ 再現
-3. **`# ERR` の行を見る。** `uv run python -m serial.tools.miniterm /dev/ttyACM0 115200`（抜けるのは Ctrl-]）。`I ...` の行が流れていなければ、その代わりに出ている `# ERR ...` が原因を言っている（[protocol](protocol.md)）。（文書より）
+3. **`# ERR` の行を見る。** `uv run python -m serial.tools.miniterm /dev/ttyACM0 115200`（抜けるのは Ctrl-]）。`I ...` の行が流れていなければ、その代わりに出ている `# ERR ...` が原因を示している（[protocol](protocol.md)）。（文書より）
 
 ## 環境（uv・Python・MuJoCo・図）
 
@@ -26,7 +26,7 @@
 - **`ModuleNotFoundError: No module named 'mujoco'`**。`python -m physlearn.cad`（16 章）は S093 から、MuJoCo が無ければこの例外ではなく「mujoco が入っていない」のメッセージで止まる（終了コード 1）。ほかに MuJoCo を直に読む所があれば、この例外のまま出る。→ `uv sync --extra mujoco --extra viz`。
 - **`No module named physlearn.__main__; 'physlearn' is a package and cannot be directly executed`** ✔ 再現。`python -m physlearn sysid ...` と打った。`physlearn` は `-m` で呼ぶ名前ではなく、コマンド名。→ `uv run physlearn sysid ...`。`python -m physlearn.link` のようにサブモジュールは `-m` で呼ぶ。
 - **`FileNotFoundError: [Errno 2] No such file or directory: 'xxx.csv'`**（`.json` も）✔ 再現。パスの打ち間違い、または作ったときと別のディレクトリにいる。→ `ls` で確かめる。`sim-log`・`link` は `--out` に書いた場所に作る。
-- **`uv run pytest` が落ちる・止まる。** 偽の XIAO を使う試験は、S092 から壁時計に依らない仮想のポートで回るので、遅い PC でも時間切れにはならない作りになった（高い負荷での確認はしていない）。擬似端末を使う実時間の形の試験 1 本（`tests/test_fakexiao.py` の `test_pty_realtime_form_still_works`）だけは今も壁時計に依る。CI は失敗した試験をやり直さない（[ci.yml](../.github/workflows/ci.yml)）。→ 落ちた試験の名前を見て、その 1 本だけをもう 1 回回す。同じ試験が同じ所で落ちたら本物の失敗。（文書より）
+- **`uv run pytest` が落ちる・止まる。** 偽の XIAO を使う試験は S092 から壁時計に依らない仮想のポートで回るので、遅い PC でも時間切れにはならない作りになった（高い負荷での確認はしていない）。擬似端末を使う実時間の形の試験 1 本（`tests/test_fakexiao.py` の `test_pty_realtime_form_still_works`）だけは今も壁時計に依る。CI は失敗した試験をやり直さない（[ci.yml](../.github/workflows/ci.yml)）。→ 落ちた試験の名前を見て、その 1 本だけをもう 1 回回す。同じ試験が同じ所で落ちたら本物の失敗。（文書より）
 - **MuJoCo を 3.x から上げたら動かない。** 4.0 でパッケージが `mujoco-core`/`mujoco-studio`/`mujoco` に分かれた。→ 入れ直す（[setup 1.3](setup.md)）。描画（Studio・viewer）が WSL2 で動くかは、この PC でも未確認（実機とは関係なし）。
 
 ## Arduino と書き込み
@@ -48,8 +48,8 @@
 
 ## シリアルと取り決め
 
-- **`TimeoutError: 1.0 秒間 IMU のサンプルが来ない`**（秒数は `SerialPlant.timeout`）✔ 再現（何も返さない擬似端末で）。原因の候補: ポートが違う、別のスケッチが入っている、IMU の初期化に失敗している、別のプログラム（miniterm など）がポートを握っている、USB が抜けた。→ miniterm で `I` の行が流れるか。流れなければ次の項。（[protocol](protocol.md)）
-- **`TimeoutError: ...（MCU の最後の報告: # ERR imu not found）`**（`hwcheck stream` も、サンプルが来ないときの `NG` の行に同じ報告を添える）✔ 再現（MCU の代わりにその行を流した）。スケッチが IMU を見つけられていない。モーターの指令は受ける。→ ① 「Sense」の付く基板か（付かない XIAO に IMU は無い）。② アドレスは変えない: XIAO nRF52840 Sense（V1.1 の基板）は IMU の SA0 が GND に固定で、アドレスは 0x6A のまま。0x6B にしても読めない。電源（IMU の電源 P1.08 が High になっているか）・`Wire1`（IMU はこちらの I2C につながる）・ライブラリ（`Seeed Arduino LSM6DS3`）・コアの種類を疑う（根拠: `log/review/2026-11-19-s055-audit5-claude.md` E1、`s043-audit4`）。③ 非 mbed 版で出続けるなら mbed 版（FQBN `Seeeduino:mbed:xiaonRF52840Sense`、未確認）で書き込み直す。（[03 章 3.3・3.5](textbook/03-hardware-firmware.md)、[bringup 段 1](bringup.md)。実機では【実機では未確認】）
+- **`TimeoutError: 1.0 秒間 IMU のサンプルが来ない`**（秒数は `SerialPlant.timeout`）✔ 再現（何も返さない擬似端末で）。原因の候補: ポートが違う、別のスケッチが入っている、IMU の初期化に失敗している、別のプログラム（miniterm など）がポートを開いている、USB が抜けた。→ miniterm で `I` の行が流れるか。流れなければ次の項。（[protocol](protocol.md)）
+- **`TimeoutError: ...（MCU の最後の報告: # ERR imu not found）`**（`hwcheck stream` も、サンプルが来ないときの `NG` の行に同じ報告を添える）✔ 再現（MCU の代わりにその行を流した）。スケッチが IMU を見つけられていない。モーターの指令は受ける。→ ① 「Sense」の付く基板か（付かない XIAO に IMU は無い）。② アドレスは変えない: XIAO nRF52840 Sense（V1.1 の基板）は IMU の SA0 が GND に固定で、アドレスは 0x6A のまま。0x6B にしても読めない。電源（IMU の電源 P1.08 が High になっているか）・`Wire1`（IMU はこちらの I2C につながる）・ライブラリ（`Seeed Arduino LSM6DS3`）・コアの種類を疑う（根拠: `log/review/2026-11-19-s055-audit5-claude.md` E1、`s043-audit4`）。③ 非 mbed 版で出続けるなら mbed 版（FQBN `Seeeduino:mbed:xiaonRF52840Sense`、未確認）で書き込み直す。（[03 章 3.3・3.5](textbook/03-hardware-firmware.md)、[bringup 段 1](bringup.md)。【実機では未確認】）
 - **`# ERR bad line`** ✔ 再現（`hello`、`M 1 x`、`M nan 0`、`M inf 0` で出る）。MCU が解釈できない行を捨てた。形は `M <左> <右>`（数が 2 つ、区切りは空白）と `S` だけ。数にならない値（NaN・無限大を含む）も捨てる。壊れた行はウォッチドッグを延ばさない。→ 手で打つときは `M 0.3 0.3`。（[protocol](protocol.md) 「エラーの扱い」）
 - **`# ERR line too long`** ✔ 再現（`M ` に 60 桁続けた）。47 文字を超えた行。端末から長い文を流し込んだとき。→ 1 行を短くする。（[protocol](protocol.md)）
 - **`RuntimeError: MCU の時刻が戻った (1.02 -> 0.5 s)`** ✔ 再現（時刻が戻る行を流した）。MCU が再起動した（電源の揺れ、USB の抜き差し、リセットの押下）、または `millis` が桁あふれした（約 49 日）。→ 実機ならモーター電源が XIAO の 3V3/5V から出ていないか、GND が共通かを見る（[09 章 電源](textbook/09-safety.md)）。ログを取り直す。
@@ -80,7 +80,7 @@
 - **`M 0.3 0.3` を打っても 0.2 秒ほどで止まる。** 正常。人が打つ速さでは指令が途絶え、ウォッチドッグ（200 ms）が止める。✔ 再現（偽の XIAO で `M` を 1 回送ると、約 0.2 秒後に `gz` が下がる。[12 章 演習 2](textbook/12-fake-xiao.md)）。走らせ続けるには同じ `M` を 200 ms より短い間隔で送り直す（`SerialPlant` は 50 ms ごと）。
 - **何度やっても回らない。** 順に: 電池 → DRV8835 の VM（スイッチは入っているか）／VCC が 3V3 につながっているか（0 V だとスリープ）／GND が XIAO・ドライバー・電池で共通か／MODE を GND にしたか（IN/IN）／ピンの並びを基板の印字（シルク）で確かめたか（AE-DRV8835-S の並びは誰も実物で確かめていない）／`M abc` が `# ERR bad line` を返すか（通信は生きている）。（文書より: [03 章 3.2](textbook/03-hardware-firmware.md)、[bringup 段 4・5](bringup.md)）
 - **片方しか回らない。** 回らない側の IN1/IN2 の結線（D0/D1 が左、D2/D3 が右）とモーターの線を見る。`jog --left 0.3` と `--right 0.3` を別々に。（文書より: [03 章 3.2](textbook/03-hardware-firmware.md)）
-- **逆向きに回る。** → そのモーターの 2 本の線を入れ替える（ソフトで直さない）。PC 側からの確かめ: `jog --right 0.3` は `gz` が正、`--left 0.3` は負が正しい。偽の XIAO では正（約 +0.58）と負（約 −0.4）が出た。✔ 再現（数は実行ごとに少し変わる）。（[03 章 3.2・3.9](textbook/03-hardware-firmware.md)、[bringup 段 5](bringup.md)）
+- **逆向きに回る。** → そのモーターの 2 本の線を入れ替える（ソフトで直さない）。PC 側からの確認: `jog --right 0.3` は `gz` が正、`--left 0.3` は負が正しい。偽の XIAO では正（約 +0.58）と負（約 −0.4）が出た。✔ 再現（数は実行ごとに少し変わる）。（[03 章 3.2・3.9](textbook/03-hardware-firmware.md)、[bringup 段 5](bringup.md)）
 - **小さい duty では回らない。** デッドバンド。回り出す duty を `M 0.05 0.05`、`M 0.1 0.1` … で見て、同定の `deadband` と比べる。（文書より: [bringup 段 5](bringup.md)）
 - **走らせているうちに止まる・ログが途切れる。** ウォッチドッグ。PC のプログラムが落ちた、USB が抜けた、壊れた行が続いた（壊れた行は延長しない）。電池切れや XIAO のリセットでも止まる。→ 端末で `# ERR` と `I` の行が続いているか。時刻が戻っていないか（上の `MCU の時刻が戻った`）。（文書より: [protocol](protocol.md)、[09 章](textbook/09-safety.md)）
 - **XIAO がリセットされる・IMU の値が乱れる。** モーターの電流で電圧が揺れる。モーター電源を XIAO の 3V3/5V から取っていないか、GND が共通か、VCC・VM の近くにコンデンサがあるかを見る。（文書より: [09 章 電源](textbook/09-safety.md)、[03 章 3.2](textbook/03-hardware-firmware.md)）
@@ -121,12 +121,12 @@
 
 - **`snapshot`（画像）が返らない。** stderr に `libEGL warning: failed to open /dev/dri/renderD128: Permission denied` が出て 90 秒たっても止まらなかった。`gpu` も同じ。→ GPU の無い WSL2 では画像の書き出しに頼らず、形の確認は `solidcraft-cli eval` の数値（体積・重心）で。（文書より）
 - **`mcp setup` は Claude Code などの設定を書き換える。** 実行しない。登録は設定を変えることなので、決めてから。（文書より）
-- **AppImage・snap が動かない。** AppImage は FUSE、snap は WSL2 の systemd の設定が要る。→ tar.gz を展開するだけの道が動いた（root・FUSE 不要）。（文書より）
+- **AppImage・snap が動かない。** AppImage は FUSE、snap は WSL2 の systemd の設定が要る。→ tar.gz を展開するだけの方法は動いた（root・FUSE 不要）。（文書より）
 - **Windows 版で SmartScreen の警告。** 署名はあるが、本番の証明書が入るまでは警告が出ることがある。→ 「詳細情報」→「実行」。（文書より）
 - **ブラウザー版・GUI・MCP の操作。** 誰も走らせていない（調査の「確かめていないこと」）。
 
 ## CI
 
 - **`test` が落ちる。** 手元で `uv sync --locked --extra mujoco --extra viz` のあと `uv run pytest -q`。失敗した試験のやり直しはしない設定（S092 が外した）。落ちたら本物の失敗として、ログの試験名から調べる。（文書より: [ci.yml](../.github/workflows/ci.yml)）
-- **`firmware` が落ちる。** コンパイルの最後に `python` と `adafruit-nrfutil` が要る。コアとライブラリの版は CI で固定してある。（文書より: [ci.yml](../.github/workflows/ci.yml)、[setup 2.3](setup.md)）
+- **`firmware` が落ちる。** コンパイルの最後に `python` と `adafruit-nrfutil` が要る。コアとライブラリのバージョンは CI で固定してある。（文書より: [ci.yml](../.github/workflows/ci.yml)、[setup 2.3](setup.md)）
 - **章に貼った出力が今のコードとずれた。** `uv run python -m physlearn.docs_check`（章のコードブロックを走らせ直して比べる）。数字は期待の最後の桁の半分以内で一致とする。pytest には入っていない。（文書より: `docs_check.py` の説明）
