@@ -2,7 +2,7 @@
 
 車体の上に載せる取り付け板（またはケース）の設計の置き場。
 
-**車体は Cytron の Robo Base ミニキット 2WD（スイッチサイエンス 10530）に確定した**（発注者の決定、JST 2026-11-19 18:20 頃）。元の Robo Base キット 2WD（10708）は売り切れで、使わない。ミニの板の外形・取付穴・トレッド・車輪径は**どこにも数字が見つからず、すべて【未確認】**。構成（TT モーター 2、車輪 2、板 2 枚、キャスター 1、スタンド）も、調査（[chassis-alternatives](../doc/research/2026-11-19-chassis-alternatives.md)）の検索の要約であって、商品ページの直読ではない。**届いたら最初にトレッドと車輪の径を測り、`dimensions.csv` と sim（`sim.Params`・`diffdrive.xml`）を直す。** ミニは 2WD よりトレッドが狭い可能性があり、80 mm 以下だとその場旋回がジャイロの範囲（±1000 dps = 17.5 rad/s）を超えるおそれがある（調査の見積もり。duty の上限 `DUTY_MAX` の見直しが要る）。
+**車体は Cytron の Robo Base ミニキット 2WD（スイッチサイエンス 10530）に確定した**（発注者の決定、JST 2026-11-19 18:20 頃）。元の Robo Base キット 2WD（10708）は売り切れで、使わない。ミニの板の外形は、商品ページの寸法図（画像）から 1 枚 109 × 88 mm、厚さ 1.6 mm と読んだ（JST 2026-11-27 02:29。調査 [black-friday](../doc/research/2026-11-27-black-friday.md)）。取付穴・トレッド・車輪径は**どこにも数字が見つからず、【未確認】**。構成（TT モーター 2、車輪 2、板 2 枚、キャスター 1、スタンド）も、調査（[chassis-alternatives](../doc/research/2026-11-19-chassis-alternatives.md)）の検索の要約であって、商品ページの直読ではない。**届いたら最初にトレッドと車輪の径を測り、`dimensions.csv` と sim（`sim.Params`・`diffdrive.xml`）を直す。** ミニは 2WD よりトレッドが狭い可能性があり、80 mm 以下だとその場旋回がジャイロの範囲（±1000 dps = 17.5 rad/s）を超えるおそれがある（調査の見積もり。duty の上限 `DUTY_MAX` の見直しが要る）。
 
 道具は SolidCraft。CLI は動かして確かめた（下の「走らせ方」）。本家 https://github.com/tangency-labs/solidcraft 、最新の正式版 v0.44.1、2026-11-17 公開、JST 2026-11-19 14:10 に GitHub の API で確認。旧名 `bherbruck/solidcraft` は同じリポジトリ。調査: [doc/research/2026-11-19-solidcraft.md](../doc/research/2026-11-19-solidcraft.md)。
 ただし下の要件と寸法表は道具に依らない。
@@ -11,7 +11,7 @@
 
 | ファイル | 中身 |
 | --- | --- |
-| `dimensions.csv` | 部品の外形・質量の表。XIAO・AE-DRV8835-S・電池ボックス・電池・ブレッドボードは調査（[dimensions](../doc/research/2026-11-19-dimensions.md)）の値を写した（`datasheet` と、販売店の値の参考値 `assumed`）。車体は 2WD（売り切れ。使わない）の行を残し、ミニの行を足した（値は全部【未確認】）。**寸法の唯一の置き場**。各値に出どころ（`datasheet` / `measured` / `cad` / `assumed`）と URL・取得時刻。届いたら `measured` 欄に測った値を書く |
+| `dimensions.csv` | 部品の外形・質量の表。XIAO・AE-DRV8835-S・電池ボックス・電池・ブレッドボードは調査（[dimensions](../doc/research/2026-11-19-dimensions.md)）の値を写した（`datasheet` と、販売店の値の参考値 `assumed`）。車体は 2WD（売り切れ。使わない）の行を残し、ミニの行を足した（板の外形 `plate_xy` だけ寸法図の読みで入れた。ほかの値は【未確認】）。**寸法の唯一の置き場**。各値に出どころ（`datasheet` / `measured` / `cad` / `assumed`）と URL・取得時刻。届いたら `measured` 欄に測った値を書く |
 | `plate.json` | 板だけ（120 × 90 × 3 mm、穴なし）。SolidCraft v0.44.1 の CLI で STEP が書き出せることを確かめた最小の例 |
 | `plate_mount.json` | 取り付け板。パラメーター付き。XIAO の窓（datasheet の外形 20.955 × 17.78 mm + 逃げ）と、取付穴の**仮の値**の 4 穴（100 × 60 mm は 2WD を想定した値で、ミニの穴ではない）。板の幅・奥行も仮の値（`TBD_plate_w`・`TBD_plate_d`）。材料 PLA（密度は SolidCraft の表の値） |
 | `plate_mount.design.json` | `plate_mount.json` から `solidcraft-cli run … --save` で作った**設計 JSON**（約 10.7 KB、505 行、`"format": "solidcraft/58"`）。ブラウザー版・GUI・MCP の `open` が開ける形。**正本（下の「どれを正にするか」）** |
