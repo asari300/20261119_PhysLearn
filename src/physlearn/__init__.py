@@ -121,6 +121,10 @@ def main(argv=None) -> None:
             apply(base, est).save(a.out)
             print(f"→ {a.out}")
     elif a.cmd == "eval":
+        if a.n < 1:
+            ap.error(f"-n は 1 以上（今 {a.n}）")
+        if a.tc is not None and not 0.03 <= a.tc <= 1:  # link run と同じ範囲
+            ap.error("--tc は 0.03〜1 秒")
         from physlearn.control import design
         from physlearn.randomize import evaluate, tune
 
