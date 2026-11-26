@@ -293,8 +293,8 @@ def main(argv=None) -> None:
     # `not (a < x < b)` の形で NaN も弾く
     if not 0 < a.dt < 1:
         p.error(f"--dt は 0〜1 秒（今 {a.dt}）")
-    if not 0 < a.seconds <= smax:
-        p.error(f"--seconds は 0〜{smax} 秒（今 {a.seconds}）")
+    if not a.dt <= a.seconds <= smax:
+        p.error(f"--seconds は --dt（{a.dt}）以上 {smax} 秒以下（今 {a.seconds}）")
     try:
         parse_axes(a.axes)
     except ValueError as e:

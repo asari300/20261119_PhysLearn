@@ -45,7 +45,7 @@ def test_jog_sign(fake):
 
 
 def test_args_rejected():
-    for bad in (["--target", "9"], ["--target", "nan"], ["--seconds", "10"], ["--tc", "0"]):
+    for bad in (["--target", "9"], ["--target", "nan"], ["--seconds", "10"], ["--tc", "0"], ["--seconds", "0.004"]):
         with pytest.raises(SystemExit):
             main(["run", "--port", "/dev/null-none", *bad])
     with pytest.raises(SystemExit):
