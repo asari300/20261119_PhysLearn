@@ -248,7 +248,8 @@ def run_loop(plant: SerialPlant, ctrl_factory, target: float, seconds: float, dt
     """+target → -target の 2 回、control.run で回す（正味の回転を 0 に近づけ、ケーブルをねじらない）。
 
     返り値: (ログの行, [(符号, metrics), ...], 作動の理由)。評価は gz からバイアスを引いたもの（実機には真値が無い）。
-    安全ゲートが作動したら、そこで止めて（次の回に進まず）理由を返す。作動しなければ理由は ""。例外は投げないので、集めた行は呼び出し側が書ける。
+    安全ゲートが作動したら、そこで止めて（次の回に進まず）理由を返す。作動しなければ理由は ""。ゲートの作動では例外を投げないので、集めた行は呼び出し側が書ける。
+    通信の例外（USB が抜けた、など）はそのまま上がり、その回までの行は返らない（`id` の sim_log のようには残らない）。
     """
     from physlearn.control import SafetyGate, metrics, run
 
@@ -261,8 +262,10 @@ def run_loop(plant: SerialPlant, ctrl_factory, target: float, seconds: float, dt
         for _ in range(round(REST_S / dt)):
             plant.step(Command(0.0, 0.0), dt)
         rows += r
-        if gate.tripped:
-            return rows, res, gate.tripped
+        # ゲートは step の前の観測しか見ないので、各回の最後のサンプルはここで同じ gz_limit で見る
+        why = gate.tripped or ("" if np.all(np.abs(y) <= gate.gz_limit) else f"|gz| > {gate.gz_limit}（最後のサンプル）")
+        if why:
+            return rows, res, why
         res.append((sign, metrics(t, sign * (y - ctrl.bias), target)))
     return rows, res, ""
 

@@ -146,3 +146,17 @@ def test_reset_waits_for_rotation_to_stop(fake, capsys):
     slow = spin_then_reset(True)
     assert slow.t == 0.0 and abs(slow.gz - HIDDEN.gyro_bias) < 0.1  # バイアス 0.08 の個体でも「止まった」と判定できる
     assert capsys.readouterr().err == ""  # 2 s のタイムアウトの警告は出ていない
+
+
+def test_run_loop_checks_the_last_sample(fake):
+    """ゲートは step の前の観測しか見ない。最後のサンプルだけ gz が閾値超えでも、次の回に進まない（S126 #6）。"""
+    class LastSpike(SerialPlant):
+        def step(self, cmd, dt):
+            o = super().step(cmd, dt)
+            self.n = getattr(self, "n", 0) + 1
+            return o if self.n != 200 else type(o)(o.t, o.ax, o.ay, o.az, o.gx, o.gy, 100.0)   # 1 回目（2.0 s）の最後
+
+    with LastSpike(ser=fake.ser) as p:
+        rows, res, why = run_loop(p, lambda: design(Params(), TC), 3.0, 2.0)
+    assert "最後のサンプル" in why and "|gz| >" in why
+    assert res == [] and len(rows) == 200     # 2 回目に進んでいない
