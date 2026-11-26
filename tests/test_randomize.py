@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from physlearn.randomize import SPREAD, sample
 from physlearn.sim import Params
@@ -13,3 +14,11 @@ def test_sample_stays_in_range():
             assert (1 + lo) * getattr(p, k) <= getattr(q, k) <= (1 + hi) * getattr(p, k)
         assert abs(q.deadband - p.deadband) <= SPREAD["deadband"] and q.deadband >= 0
         assert abs(q.gyro_bias - p.gyro_bias) <= SPREAD["gyro_bias"]
+
+
+def test_eval_refuses_bad_n_and_tc():
+    from physlearn import main as cli
+
+    for bad in (["-n", "0"], ["--tc", "0"], ["--tc", "2"]):
+        with pytest.raises(SystemExit):
+            cli(["eval", *bad])

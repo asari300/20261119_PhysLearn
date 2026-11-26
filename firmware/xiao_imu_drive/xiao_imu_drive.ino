@@ -13,7 +13,7 @@
 #if defined(ARDUINO_Seeed_XIAO_nRF52840_Sense) || defined(ARDUINO_XIAO_MG24)
 // nRF52840: analogWrite は空いた PWM モジュールに割り当てるのでどの GPIO でもよい。既定は 8 bit・
 // 16 MHz/255 ≈ 62.7 kHz（コア 1.1.13 の HardwarePWM.cpp）で、DRV8835 の上限 250 kHz 内。
-// MG24 は未コンパイル・未確認
+// MG24: CI（firmware-mg24）でコンパイルは通る。実機では未確認
 const int PIN_L_IN1 = D0, PIN_L_IN2 = D1;  // 左モーター (DRV8835 AIN1/AIN2)
 const int PIN_R_IN1 = D2, PIN_R_IN2 = D3;  // 右モーター (DRV8835 BIN1/BIN2)
 #else

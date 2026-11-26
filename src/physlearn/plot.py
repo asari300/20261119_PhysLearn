@@ -18,21 +18,15 @@ try:
 except ImportError:
     sys.exit("matplotlib が無い。`uv sync --extra viz` で入れる")
 
+from physlearn.compare import model_gz
 from physlearn.log import read_csv
 from physlearn.sim import Params
-from physlearn.sysid import first_order
 
 C = ["tab:blue", "tab:orange", "tab:green"]
 
 
 def turn(log: dict):
     return (log["right"] - log["left"]) / 2
-
-
-def model_gz(log: dict, p: Params):
-    """ログと同じ指令をモデルに流した gz（雑音なし、バイアスあり）。"""
-    y = first_order(turn(log), log["t"], p.yaw_gain(), p.deadband, [p.motor_tau])[:, 0]
-    return y + p.gyro_bias
 
 
 def plot_log(log: dict, out, params: Params | None = None, label="log", title=None):

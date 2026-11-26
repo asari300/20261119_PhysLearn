@@ -14,6 +14,9 @@ import numpy as np
 from physlearn.sim import Params
 
 
+NO_STILL = "最初に静止区間 (指令 0) が 20 行以上いる"
+
+
 def segments(u: np.ndarray, min_len: int = 10) -> list[tuple[int, int]]:
     """指令が一定の区間 [i, j) の一覧。安全ゲートの傾斜で出来る短い区間は次の区間に含める。"""
     cut = np.nonzero(np.diff(u))[0] + 1
@@ -55,15 +58,19 @@ def identify(log: dict) -> dict:
     t, gz = log["t"], log["gz"]
     u = (log["right"] - log["left"]) / 2
     segs = segments(u)
+    if not segs:  # 指令が一定の区間が 10 行に満たない（空のログ・短いログ）
+        raise ValueError(NO_STILL)
     i0, j0 = segs[0]
     if np.any(u[i0:j0]) or j0 - i0 < 20:
-        raise ValueError("最初に静止区間 (指令 0) が 20 行以上いる")
+        raise ValueError(NO_STILL)
     still = gz[i0 + (j0 - i0) // 2 : j0]  # 前半は動き出しや前の揺れを避けて捨てる
     bias, noise = float(still.mean()), float(still.std(ddof=1))
     y = gz - bias
 
     # 動いたステップの数: 各区間の後ろ 30% を定常とみなして、雑音の 10 倍を超えたもの
     ss = [np.sign(u[j - 1]) * y[i + int(0.7 * (j - i)) : j].mean() for i, j in segs[1:] if u[j - 1] != 0]
+    if sum(v < -10 * noise for v in ss) >= 2:  # 指令と逆向きに回っている。向きを反転して当てはめると K < 0 を 0 に切って「動いていない」に見える
+        raise ValueError("指令と逆向きに回っている。配線か --axes を確かめる")
     if sum(v > 10 * noise for v in ss) < 2:  # 静止だけのログ（モーター無しの XIAO など）ではゲインとデッドバンドを分けられない
         return {"gyro_bias": bias, "gyro_noise": noise}
     # モデル K*dz(u; d) を τ の格子に通した応答は K に比例するので、(d, τ) ごとに K は最小二乗で閉じた形で出る。

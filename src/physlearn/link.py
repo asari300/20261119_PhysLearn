@@ -247,24 +247,24 @@ def jog_hint(left: float, right: float) -> str:
 def run_loop(plant: SerialPlant, ctrl_factory, target: float, seconds: float, dt: float = 0.01):
     """+target → -target の 2 回、control.run で回す（正味の回転を 0 に近づけ、ケーブルをねじらない）。
 
-    返り値: (ログの行, [(符号, metrics), ...])。評価は gz からバイアスを引いたもの（実機には真値が無い）。
+    返り値: (ログの行, [(符号, metrics), ...], 作動の理由)。評価は gz からバイアスを引いたもの（実機には真値が無い）。
+    安全ゲートが作動したら、そこで止めて（次の回に進まず）理由を返す。作動しなければ理由は ""。例外は投げないので、集めた行は呼び出し側が書ける。
     """
     from physlearn.control import SafetyGate, metrics, run
 
     rows, res = [], []
     for sign in (1, -1):
-        ctrl = ctrl_factory()
-        r, t, y = run(plant, ctrl, sign * target, seconds, dt)
+        ctrl, gate = ctrl_factory(), SafetyGate()
+        r, t, y = run(plant, ctrl, sign * target, seconds, dt, gate=gate)
         plant.stop()
         # run は reset から測り始める。回ったままだと次の回の初期値になるので、止まるまで待つ
         for _ in range(round(REST_S / dt)):
             plant.step(Command(0.0, 0.0), dt)
         rows += r
-        # run の中のゲートは外から見えないので、同じ閾値で作動したかを見て、次の回に進まない
-        if not np.all(np.abs(y) <= SafetyGate().gz_limit):
-            raise RuntimeError(f"安全ゲートが作動した（|gz| > {SafetyGate().gz_limit} か NaN）。止めた")
+        if gate.tripped:
+            return rows, res, gate.tripped
         res.append((sign, metrics(t, sign * (y - ctrl.bias), target)))
-    return rows, res
+    return rows, res, ""
 
 
 def main(argv=None) -> None:
@@ -291,10 +291,11 @@ def main(argv=None) -> None:
     a.target = TARGET if a.target is None else a.target
     smax = {"jog": JOG_MAX_S, "run": RUN_MAX_S}.get(a.mode, 3600)
     # `not (a < x < b)` の形で NaN も弾く
-    if not 0 < a.dt < 1:
-        p.error(f"--dt は 0〜1 秒（今 {a.dt}）")
-    if not 0 < a.seconds <= smax:
-        p.error(f"--seconds は 0〜{smax} 秒（今 {a.seconds}）")
+    # dt の下限はマイコンの送信周期 0.01 s。これより短いと 1 step が dt より長くなり、秒数の上限が効かない
+    if not 0.01 <= a.dt < 1:
+        p.error(f"--dt は 0.01〜1 秒（今 {a.dt}）")
+    if not a.dt <= a.seconds <= smax:
+        p.error(f"--seconds は --dt（{a.dt}）以上 {smax} 秒以下（今 {a.seconds}）")
     try:
         parse_axes(a.axes)
     except ValueError as e:
@@ -325,7 +326,7 @@ def main(argv=None) -> None:
             print(f"gz の平均（後半）{g:+.3f} rad/s（バイアス込み）。{jog_hint(a.left, a.right)}")
             return
         if a.mode == "run":
-            rows, res = run_loop(plant, lambda: design(base, tc), a.target, a.seconds, a.dt)
+            rows, res, why = run_loop(plant, lambda: design(base, tc), a.target, a.seconds, a.dt)
             if a.out:
                 write_csv(a.out, rows)
                 print(f"wrote {a.out}")
@@ -334,12 +335,19 @@ def main(argv=None) -> None:
                     f"[{'+' if sign > 0 else '-'}{a.target}] 整定 {m['settle']:.2f} s  行き過ぎ {m['overshoot'] * 100:.1f} %"
                     f"  定常偏差 {m['ss_error']:.3f} rad/s  仕様 {'OK' if passes(m) else 'NG'}"
                 )
+            if why:
+                raise SystemExit(f"安全ゲートが作動した（{why}）。止めた")
             return
         if a.mode == "still":
             record(plant, [(a.seconds, Command(0.0, 0.0))], a.dt, a.out)
         else:
             # sim と同じ指令列・同じ安全ゲート。左右交互なので USB ケーブルの正味のねじれはほぼ 0
-            write_csv(a.out, sim_log(plant, a.dt))
+            rows = []
+            try:
+                sim_log(plant, a.dt, rows)
+            finally:  # 途中で失敗しても、そこまでのログを残す
+                if rows:
+                    write_csv(a.out, rows)
     print(f"wrote {a.out}")
 
 

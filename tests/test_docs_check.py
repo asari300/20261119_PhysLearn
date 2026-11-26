@@ -130,3 +130,14 @@ def test_commands_that_need_mujoco_are_skipped_without_it(tmp_path):
     assert [x[2] for x in r] == ["差", "飛ばした"] and r[1][3] == "mujoco なし"
     md.write_text("```\n$ uv run python -c \"raise SystemExit('mujoco が入っていない。x')\"\n1\n```\n")
     assert run_file(md, False)[0][2] == "飛ばした"
+
+
+def test_chapters_keep_their_checked_blocks():
+    """章ごとの「比べる対象」の数。文を直して出力のブロックがコマンドから外れると（行末の「:」を「。」にするなど）、
+    差は 0 のまま黙って減る。数を変えたら、意図したものか確かめてここを直す。"""
+    from physlearn.docs_check import TARGETS
+
+    n = {f.name: sum(u.expected is not None for u in extract(f.read_text())) for f in TARGETS}
+    assert n == {"04-sim.md": 1, "05-real2sim.md": 10, "06-sim2real.md": 7, "07-loop.md": 5, "08-mujoco.md": 1,
+                 "11-imu-lab.md": 3, "12-fake-xiao.md": 5, "13-motor-physics.md": 4, "14-fit-check.md": 6,
+                 "15-mismatch.md": 7, "16-enclosure.md": 1, "solutions.md": 5, "README.md": 1, "bringup.md": 0}

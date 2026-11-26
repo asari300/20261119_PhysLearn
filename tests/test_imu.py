@@ -58,3 +58,17 @@ def test_turn_refuses_empty_still_window(tmp_path):
     stand_in(str(still), str(turn), 2.0)
     with pytest.raises(SystemExit, match="still-seconds"):
         main(["turn", str(turn), "--still-seconds", "0"])
+
+
+def test_stats_refuses_short_log_with_a_sentence(tmp_path):
+    from physlearn.log import LOG_COLUMNS
+
+    p = tmp_path / "one.csv"
+    p.write_text(",".join(LOG_COLUMNS) + "\n" + ",".join("0" for _ in LOG_COLUMNS) + "\n")
+    with pytest.raises(ValueError, match="2 行未満"):
+        stats(read_csv(p))
+    for cmd in ("still", "r2s"):
+        for text in (p.read_text(), ",".join(LOG_COLUMNS) + "\n"):  # 1 行と、ヘッダーだけ
+            p.write_text(text)
+            with pytest.raises(SystemExit, match="2 行未満"):
+                main([cmd, str(p), *(["--out", str(tmp_path / "x.json")] if cmd == "r2s" else [])])

@@ -14,6 +14,7 @@ from physlearn.api import Command
 from physlearn.log import as_log, read_csv, row, write_csv
 from physlearn.sim import G, Params, SimPlant
 
+NO_SAMPLES = "サンプルが 2 行未満。ログを取り直す"
 AXES = ("ax", "ay", "az", "gx", "gy", "gz")
 
 
@@ -35,6 +36,8 @@ def allan(x: np.ndarray, dt: float) -> list[tuple[float, float]]:
 
 
 def stats(log) -> dict:
+    if len(log["t"]) < 2:
+        raise ValueError(NO_SAMPLES)
     dt = np.diff(log["t"])
     a = np.stack([log["ax"], log["ay"], log["az"]])
     norm = np.linalg.norm(a, axis=0).mean()
@@ -117,6 +120,8 @@ def main(argv=None) -> None:
     r.add_argument("--out", required=True)
     a = ap.parse_args(argv)
     log = read_csv(a.csv)
+    if a.cmd != "turn" and len(log["t"]) < 2:
+        raise SystemExit(NO_SAMPLES)
 
     if a.cmd == "still":
         s = stats(log)

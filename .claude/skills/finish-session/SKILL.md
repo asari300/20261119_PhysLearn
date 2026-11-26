@@ -42,8 +42,10 @@ python3 .claude/hooks/save_session_log.py --check log/sessions/*.md
 
 ```bash
 git add -A && git status --porcelain     # 意図しない差分が無いか読む
-LEAK="$(whoami)|$(git config user.email)|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}"
-git diff --cached -U0 | grep '^+' | grep -nE "$LEAK" && echo "漏洩の疑いあり。止める" || echo "漏洩の疑い 0 件"
+# 足した行を、セッション記録と同じ規則（フックの REDACTIONS・ローカルのユーザー名・Windows のプロファイル名）で検査する
+F=$(mktemp) && git diff --cached -U0 | grep '^+' | cut -c2- > "$F"  # 行頭の + を落とす（メールの規則に + が入る）
+python3 .claude/hooks/save_session_log.py --check "$F" && echo "漏洩の疑い 0 件" || echo "漏洩の疑いあり。止める"
+rm -f "$F"
 git commit                               # 日本語で「SNNN: 何を・なぜ」
 ```
 

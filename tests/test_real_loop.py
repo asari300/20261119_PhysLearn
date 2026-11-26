@@ -22,11 +22,11 @@ def fake(fake_factory):
 
 def test_s2r_r2s_s2r_over_serial(fake, capsys):
     with SerialPlant(ser=fake.ser) as p:
-        _, before = run_loop(p, lambda: design(Params(), TC), 3.0, 2.0)
+        _, before, _ = run_loop(p, lambda: design(Params(), TC), 3.0, 2.0)
         rows = sim_log(p)
         est = identify(as_log(rows))
         fixed = apply(Params(), est)
-        _, after = run_loop(p, lambda: design(fixed, TC), 3.0, 2.0)
+        _, after, _ = run_loop(p, lambda: design(fixed, TC), 3.0, 2.0)
     # 同じゲインを Python の中で直に（シリアル無しで）回したもの = loop_demo の数値の出どころ
     direct = metrics(*run(SimPlant(HIDDEN, seed=1001), design(fixed, TC))[1:])
     with capsys.disabled():
@@ -45,7 +45,7 @@ def test_jog_sign(fake):
 
 
 def test_args_rejected():
-    for bad in (["--target", "9"], ["--target", "nan"], ["--seconds", "10"], ["--tc", "0"]):
+    for bad in (["--target", "9"], ["--target", "nan"], ["--seconds", "10"], ["--tc", "0"], ["--seconds", "0.004"], ["--dt", "0.001"]):  # dt < 0.01 は秒数の上限が効かなくなる
         with pytest.raises(SystemExit):
             main(["run", "--port", "/dev/null-none", *bad])
     with pytest.raises(SystemExit):
@@ -76,23 +76,57 @@ def test_exception_sends_stop(fake):
     wait_stopped(fake)
 
 
-def test_gate_trip_stops(fake):
-    class Wild:  # 暴走した制御器の代わり: gz を大きく見せるためバイアスを使わず、ゲートの閾値を下げた世界を真似る
-        bias = 0.0
+class Wild:  # 暴走した制御器の代わり: gz が 2 rad/s を超えるように、ゲートの閾値を下げた世界を作って使う
+    bias = 0.0
 
-        def __call__(self, target, obs, dt):
-            return Command(-0.6, 0.6)
+    def __call__(self, target, obs, dt):
+        return Command(-0.6, 0.6)
 
+
+@pytest.fixture
+def low_gate_limit(monkeypatch):
     import physlearn.control as control
 
-    old = control.SafetyGate.__init__.__defaults__
-    control.SafetyGate.__init__.__defaults__ = (0.6, 10.0, 2.0)  # gz_limit を 2 rad/s に
-    try:
-        with pytest.raises(RuntimeError, match="安全ゲート"), SerialPlant(ser=fake.ser) as p:
-            run_loop(p, Wild, 3.0, 1.0)
-    finally:
-        control.SafetyGate.__init__.__defaults__ = old
+    monkeypatch.setattr(control.SafetyGate.__init__, "__defaults__", (0.6, 10.0, 2.0))  # gz_limit を 2 rad/s に
+
+
+def test_gate_trip_stops(fake, low_gate_limit):
+    with SerialPlant(ser=fake.ser) as p:
+        rows, res, why = run_loop(p, Wild, 3.0, 1.0)
+    assert "|gz| >" in why  # 理由が分かる
+    assert res == [] and len(rows) == 100  # 2 回目に進まない（1 回目の 1 s = 100 行）。ログは残る
     wait_stopped(fake)
+
+
+def test_run_trip_writes_log_then_exits_with_reason(fake, low_gate_limit, monkeypatch, tmp_path):
+    import physlearn.link as link
+
+    monkeypatch.setattr(link, "open_port", lambda parser, port, **kw: fake.ser)
+    out = tmp_path / "run.csv"
+    with pytest.raises(SystemExit) as e:
+        main(["run", "--port", "virtual", "--tc", "0.15", "--seconds", "1.0", "--out", str(out)])
+    assert "安全ゲートが作動した" in str(e.value) and "|gz| >" in str(e.value)
+    assert out.read_text().count("\n") == 101  # ヘッダー + 100 行
+
+
+def test_id_failure_keeps_the_rows_so_far(fake, monkeypatch, tmp_path):
+    import physlearn.link as link
+
+    class Dies(SerialPlant):
+        def step(self, cmd, dt):
+            if self.n >= 50:
+                raise TimeoutError("USB が抜けた")
+            self.n += 1
+            return super().step(cmd, dt)
+
+        n = 0
+
+    monkeypatch.setattr(link, "open_port", lambda parser, port, **kw: fake.ser)
+    monkeypatch.setattr(link, "SerialPlant", lambda **kw: Dies(**kw))
+    out = tmp_path / "id.csv"
+    with pytest.raises(TimeoutError):
+        main(["id", "--port", "virtual", "--out", str(out)])
+    assert out.read_text().count("\n") == 51
 
 
 def test_reset_waits_for_rotation_to_stop(fake, capsys):

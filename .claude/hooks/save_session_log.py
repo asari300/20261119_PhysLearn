@@ -196,7 +196,7 @@ def blocks(message: dict) -> list:
 
 
 def clip(s: str, n: int) -> str:
-    s = s.rstrip()
+    s = redact(s.rstrip())                       # 切る前に伏せ字。境目をまたぐ断片が残らないように
     return s if len(s) <= n else s[:n] + f"\n… （残り {len(s) - n:,} 字は生ログを参照）"
 
 

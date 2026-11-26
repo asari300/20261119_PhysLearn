@@ -28,14 +28,14 @@ def make_plant(name: str, base: Params = Params(), seed: int = 0):
     return SimPlant(HIDDEN if name == "hidden" else base, seed=seed)
 
 
-def sim_log(plant, dt: float = 0.01) -> list:
-    """同定用の開ループ指令列を安全ゲート越しに流し、ログの行を返す。"""
+def sim_log(plant, dt: float = 0.01, rows: list | None = None) -> list:
+    """同定用の開ループ指令列を安全ゲート越しに流し、ログの行を返す。rows を渡すと、そこに行を足す（途中で失敗しても残る）。"""
     from physlearn.control import SafetyGate
     from physlearn.log import row
 
     gate = SafetyGate()
     obs = plant.reset()
-    rows = []
+    rows = [] if rows is None else rows
     for c in id_experiment(dt):
         was = gate.tripped
         cmd = gate(c, obs, dt)
@@ -109,7 +109,10 @@ def main(argv=None) -> None:
         from physlearn.log import read_csv
         from physlearn.sysid import apply, identify
 
-        est = identify(read_csv(a.csv))
+        try:
+            est = identify(read_csv(a.csv))
+        except ValueError as e:
+            raise SystemExit(str(e)) from None
         for k, v in est.items():
             print(f"{k:11s} {v:.4f}")
         if "yaw_gain" not in est:
@@ -118,6 +121,10 @@ def main(argv=None) -> None:
             apply(base, est).save(a.out)
             print(f"→ {a.out}")
     elif a.cmd == "eval":
+        if a.n < 1:
+            ap.error(f"-n は 1 以上（今 {a.n}）")
+        if a.tc is not None and not 0.03 <= a.tc <= 1:  # link run と同じ範囲
+            ap.error("--tc は 0.03〜1 秒")
         from physlearn.control import design
         from physlearn.randomize import evaluate, tune
 
