@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/asari300/20261119_PhysLearn/actions/workflows/ci.yml/badge.svg)](https://github.com/asari300/20261119_PhysLearn/actions/workflows/ci.yml) [![CAD](https://github.com/asari300/20261119_PhysLearn/actions/workflows/cad.yml/badge.svg)](https://github.com/asari300/20261119_PhysLearn/actions/workflows/cad.yml)
 
-IMU を載せた Seeed Studio XIAO と小さな 2 輪車で、Physical AI の基本である **Sim2Real (S2R)** と **Real2Sim (R2S)** を学ぶリポジトリ。
+IMU を載せた Seeed Studio XIAO と小さな 2 輪車で、Physical AI の基本である Sim2Real (S2R) と Real2Sim (R2S) を学ぶリポジトリ。
 教材（日本語）と Python のコード（sim・制御器・同定・ばらつき評価）、XIAO の Arduino スケッチを置いている。
 課題は 1 つだけ: 「IMU のジャイロだけを見て、車体のヨー角速度を指令どおりにする」。
 
@@ -19,7 +19,7 @@ IMU を載せた Seeed Studio XIAO と小さな 2 輪車で、Physical AI の基
 できない・確かめていない:
 
 - **実機では一度も動かしていない。** 部品はまだ手元に無い。「実機」の結果はすべて代役（隠しパラメータの sim・MuJoCo・偽の XIAO）のもの。
-- XIAO MG24 Sense 向けは、CI でコンパイルは通った（落ちても全体は落とさない設定）。コアが `printf` の浮動小数を持たない見込みなので、スケッチの側で `%f` を避けた（[03 章](doc/textbook/03-hardware-firmware.md)）。**動作は実機で未確認。**
+- XIAO MG24 Sense 向けは CI でコンパイルは通った（落ちても全体は落とさない設定）。コアが `printf` の浮動小数を持たない見込みなので、スケッチの側で `%f` を避けた（[03 章](doc/textbook/03-hardware-firmware.md)）。**動作は実機で未確認。**
 - **Isaac Sim / Isaac Lab は実行していない**（WSL2・GPU 無し・RAM 7 GiB）。手引き（[90 章](doc/textbook/90-isaac-sim-guide.md)）だけ。理由は [ADR-0001](doc/adr/0001-sim-stack.md)。
 - **SolidCraft の GUI とブラウザー版は誰も動かしていない。** MCP の登録はしたが、ツールごとの許可は未設定。
 - **車体は Robo Base ミニ 2WD に決めたが、その寸法は未確認。** sim の寸法とモーター定数は**仮の値**（置き場は [cad/dimensions.csv](cad/dimensions.csv)）。
@@ -28,7 +28,7 @@ IMU を載せた Seeed Studio XIAO と小さな 2 輪車で、Physical AI の基
 
 ## 最短の道
 
-[uv](https://docs.astral.sh/uv/) を入れてから（入れ方は [doc/setup.md](doc/setup.md)。Python 3.12 以上は uv が自動で入れる）。リポジトリを clone して、その根で打つ。
+[uv](https://docs.astral.sh/uv/) を入れてから（入れ方は [doc/setup.md](doc/setup.md)。Python 3.12 以上は uv が自動で入れる）、リポジトリを clone して、その根で打つ。
 
 **1. 実機なし（PC だけ）**
 
@@ -38,7 +38,7 @@ uv run pytest              # 通ることを確かめる（約 1 分。MuJoCo �
 uv run physlearn loop-demo # 代役の実機で R2S → S2R を 1 周回す（約 10 秒）
 ```
 
-続きは教材の [00 章](doc/textbook/00-overview.md) から。`loop-demo` の出力（seed 0）の要点。通過率が 100 % → 42 % と下がるのは、同定で sim が現実に近づき、ばらつきの幅が広がって評価が厳しくなるため（[07 章](doc/textbook/07-loop.md)）:
+続きは教材の [00 章](doc/textbook/00-overview.md) から。`loop-demo` の出力（seed 0）の要点。通過率が 100 % → 42 % と下がるのは、同定で sim が現実に近づき、ばらつきの幅が広がって評価が厳しくなるため（[07 章](doc/textbook/07-loop.md)）。
 
 ```text
 [前 (公称の sim)] tc=0.08  sim での通過率 100%  代役で: 整定 0.64 s  行き過ぎ 5.8 %  定常偏差 0.081 rad/s  仕様 NG
@@ -73,9 +73,9 @@ uv run physlearn loop-demo # 代役の実機で R2S → S2R を 1 周回す（�
 | --- | --- | --- |
 | (A) 最小 | XIAO nRF52840 Sense ＋ USB ケーブル。IMU の雑音とバイアスを測る | 3,220 円 |
 | (B) 車体込み | (A) ＋ Robo Base ミニキット 2WD（SKU 10530）・DRV8835 モジュール・電池ボックス・ブレッドボード・ケーブル・電池・テスター（と、その 006P 電池） | 7,603 円 |
-| (C) 試し部品つき | (B) ＋ エンコーダー用の光センサー（次の一歩の試し） | 8,083 円 |
+| (C) 試し部品つき | (B) ＋ エンコーダー用の光センサー（次の一歩を試すため） | 8,083 円 |
 
-- 第一候補のボードは **XIAO nRF52840 Sense**（IMU は LSM6DS3TR-C、技適あり）。
+- 第一候補のボードは XIAO nRF52840 Sense（IMU は LSM6DS3TR-C、技適あり）。
 - **在庫が細い。** 秋月の通販は残り 8 個（19:12 も 8 個。昼は 9 個）。次点は XIAO MG24 Sense（10/22 に値上がり）、在庫の保険は XIAO nRF54L15 Sense。スイッチサイエンスは商品ページが読めなかった（429）。
 - 車体は、元の Robo Base キット 2WD（10708）が売り切れ（発注者が在庫数 0 を確認）のため、ミニキット 2WD に決めた。**ミニの商品ページは誰も読めておらず**、付属品と寸法は検索の要約。注文の前に確かめる点が 5 つ残っている（発注リストの冒頭）。
 - モータードライバーは DRV8835（秋月 AE-DRV8835-S）。DRV8833 は秋月で見つからなかった。
