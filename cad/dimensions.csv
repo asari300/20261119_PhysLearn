@@ -15,7 +15,7 @@ Cytron Robo Base 2WD,track,【未確認】,mm,,,,,【2WD は売り切れ。使�
 Cytron Robo Base 2WD,axle_to_caster_x,【未確認】,mm,,,,,【2WD は売り切れ。使わない】キャスターは W420 ボールキャスター（同梱品リスト）。位置の寸法は取れず
 Cytron Robo Base 2WD,mass,【未確認】,g,,,,,【2WD は売り切れ。使わない】モーター 2 個と車輪込み。質量の記載なし。TT モーター＋車輪セットの正味 65 g は別の製品の値で、キット付属と同一かは【未確認】
 Cytron Robo Base Mini 2WD,構成,TT モーター 2（15 cm 線）、プラスチックの車輪 2、TT 用ブラケット 2、W420 ボールキャスター 1、板 2 枚、M3 スタンド 25 mm と 10 mm 各 4（長さは Cytron の要約。The Pi Hut は 10 mm と書き食い違う）、M3 ネジ・ナット,,,https://www.switch-science.com/products/10530,2026-11-19 18:20,,"分かっているのは構成だけ。調査 doc/research/2026-11-19-chassis-alternatives.md の検索の要約であって、商品ページの直読ではない（Cytron は 403、スイッチサイエンスは読めず）。10530、税込 1,958 円"
-Cytron Robo Base Mini 2WD,plate_xy,【未確認】,mm,,https://www.switch-science.com/products/10530,,,上の板の外形と取付穴の位置・径。数字はどこにも見つからなかった。届いたら測る。板は厚さ 1.6 mm の基板材（The Pi Hut の要約）。XIAO・ブレッドボード・電池ボックスが載るかも実物で
+Cytron Robo Base Mini 2WD,plate_xy,109 x 88,mm,datasheet,https://www.switch-science.com/products/10530,2026-11-27 02:29,,スイッチサイエンスの商品ページの寸法図（画像）を読んだ値。板は 1 枚で厚さ 1.6 mm。調査は doc/research/2026-11-27-black-friday.md（図の画像は 02:29 に取得）。画像からの読みで、実物の測定ではない。取付穴の位置・径は【未確認】（調査は図から Ø4.8 mm ×4、間隔 72 x 32 mm と読んだが、取付穴かどうかを確かめていないので入れない）。トレッドと車輪径も【未確認】。届いたら測る。XIAO・ブレッドボード・電池ボックスが載るかは実物で
 Cytron Robo Base Mini 2WD,wheel_radius,【未確認】,mm,,,,,直径も不明（TT 用なら 65〜67 mm の見込みだが Mini の車輪は未確認）。届いたら最初に測り、measured 欄に入れる
 Cytron Robo Base Mini 2WD,track,【未確認】,mm,,,,,左右の車輪の接地点の間隔。2WD より狭い可能性があり、80 mm 以下だとその場旋回がジャイロの範囲（±1000 dps = 17.5 rad/s）を超えるおそれがある（調査の見積もり）。届いたら最初に測る
 Cytron Robo Base Mini 2WD,axle_to_caster_x,【未確認】,mm,,,,,

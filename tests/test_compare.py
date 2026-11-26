@@ -70,3 +70,20 @@ def test_still_only_log_is_refused_by_fit_and_holdout(log):
     for f in (lambda lg: fit(lg, HIDDEN), holdout):
         with pytest.raises(ValueError, match="動かした区間が無い"):
             f(still)
+
+
+def test_cli_refusal_is_one_line_for_fit_holdout_spread(tmp_path):
+    from physlearn.compare import NO_MOVE, main
+    from physlearn.imu import simulate
+    from physlearn.log import write_csv
+    from physlearn.sysid import NO_STILL
+
+    still = simulate(Params(), 500, 0.01)[0]
+    rows = [[still[c][i] for c in still] for i in range(len(still["t"]))]
+    write_csv(tmp_path / "still.csv", rows)
+    write_csv(tmp_path / "short.csv", rows[:5])
+    Params().save(tmp_path / "p.json")
+    for args, msg in ((["fit", "still.csv", "p.json"], NO_MOVE), (["holdout", "still.csv"], NO_MOVE), (["spread", "short.csv", "p.json"], NO_STILL)):
+        with pytest.raises(SystemExit) as e:
+            main([str(tmp_path / x) if x.endswith((".csv", ".json")) else x for x in args])
+        assert str(e.value) == msg

@@ -151,6 +151,13 @@ def _range(lo, hi, spec=False) -> str:
 
 
 def main(argv=None) -> None:
+    try:
+        _run(argv)
+    except ValueError as e:  # 静止だけのログなど。`physlearn sysid` と同じく、断りの文を 1 行で出す
+        raise SystemExit(str(e)) from None
+
+
+def _run(argv) -> None:
     a = sys.argv[1:] if argv is None else argv
     if len(a) == 3 and a[0] == "fit":
         show(fit(read_csv(a[1]), Params.load(a[2])))
