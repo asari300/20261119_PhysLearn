@@ -16,7 +16,7 @@ CI に入れるなら main への push だけ（`permissions: contents: read`・
 飛ばす: ブロックの直前に `<!-- docs_check: skip 理由 -->`。印が無くても `--port`・`fakexiao`・`pytest` は飛ばし、
        それが書くファイルを読む後続のコマンドも飛ばす。`--extra mujoco` は `--mujoco` のときだけ走らせる。
 比較: 数字は期待の最後の桁の半分 + 1e-9 以内で一致（小数点も指数も無い整数は厳密に一致）、数字以外は完全一致、
-     `...` を含む期待の行は飛ばす、空行は無視。
+     `...` を含む期待の行は飛ばす、空行は無視。抜粋の期待が空（か `...` の行だけ）なら、何も確かめていないので「差」。
 `--mujoco` なしのとき、`ModuleNotFoundError: No module named 'mujoco'`・「mujoco が入っていない」で落ちたコマンドと `--plant mujoco`・`--real mujoco` は「飛ばした（mujoco なし）」。
 --strict（既定は無効。正しく書いた章でも「差」が増えうる）: コマンドが 0 以外の終了コードなのに期待が例外・usage を見せていなければ「差」、
      FileNotFoundError は飛ばしたコマンドが作るはずのファイルの名前が stderr にあるときだけ「飛ばした」、`uv run` 以外は飛ばす。
@@ -140,6 +140,8 @@ def compare(expected, actual, excerpt=False):
     exp = [l.rstrip() for l in expected if l.strip()]
     act = [l.rstrip() for l in actual if l.strip()]
     if excerpt:  # shortcut: 抜粋は順序つきの部分列で見る。行の途中の省略には対応しない
+        if all(e.strip() == "..." for e in exp):  # 空か ... だけでは何も確かめていないので、一致にしない
+            return "(抜粋の期待が空か ... だけ)", "(何も確かめていない)"
         i = 0
         for e in exp:
             while i < len(act) and not same(e, act[i]):

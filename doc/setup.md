@@ -11,7 +11,7 @@
 | 【文書】 | 一次資料（出典を書く）で確かめただけ。この PC では走らせていない |
 | 【未確認】 | 実機が無い・資料に無いなどで確かめていない |
 
-出典は JST 2026-11-19 13:45〜13:50 に取得した。**夕方（18:45）に、CI で使っている版（`.github/workflows/ci.yml`・`cad.yml`）、SolidCraft の CLI、診断ツール、つまずき集への案内を足し、監査 4・5 巡目の指摘（Learn の頁の更新日、TinyUSB の行）を直した。**
+出典は JST 2026-11-19 13:45〜13:50 に取得した。夕方（18:45）に、CI で使っているバージョン（`.github/workflows/ci.yml`・`cad.yml`）、SolidCraft の CLI、診断ツール、つまずき集への案内を足し、監査 4・5 巡目の指摘（Learn の頁の更新日、TinyUSB の行）を直した。
 
 困ったら先に [troubleshooting.md](troubleshooting.md)（症状から引く）を見る。実機をつないだ直後の診断は `python -m physlearn.hwcheck`（1.4）。
 
@@ -62,7 +62,7 @@ uv sync --extra mujoco       # MuJoCo 4.x（CPU）。08 章で使う
 ### 1.4 つないだ直後の診断と、つまずいたとき
 
 - 実機（または偽の XIAO）をつないだら、まず `uv run python -m physlearn.hwcheck stream --port /dev/ttyACM0`（サンプルの周期と欠け、`# ERR`、バイアス、飽和を見る）。次に `... hwcheck axes --port ...`（水平・前を上・左を上の 3 姿勢から `--axes` を割り出す）。手順は [bringup.md](bringup.md) の段 1〜3。偽の XIAO でだけ確かめた。実機では【未確認】。
-- **`--axes` は `=` でつなぐ**: 値が `-` で始まるとき、`--axes -y,x,z` と空白で分けると argparse が別のオプションと取り違えて拒む。`--axes=-y,x,z` と書く（`-y,x,z` は基板データからの読み。実物では未確認。[03 章 3.7](textbook/03-hardware-firmware.md)）。`link` は空白区切りでも通り、`hwcheck axes` は `--axes=-y,x,z` の形で表示する（S059、18:43 に main へ。偽の XIAO でだけ確認）。`fakexiao --axes` は今も `=` が要る。
+- `--axes` は `=` でつなぐ。値が `-` で始まるとき、`--axes -y,x,z` と空白で分けると argparse が別のオプションと取り違えて拒む。`--axes=-y,x,z` と書く（`-y,x,z` は基板データからの読み。実物では未確認。[03 章 3.7](textbook/03-hardware-firmware.md)）。`link` は空白区切りでも通り、`hwcheck axes` は `--axes=-y,x,z` の形で表示する（S059、18:43 に main へ。偽の XIAO でだけ確認）。`fakexiao --axes` は今も `=` が要る。
 - 症状から引くなら [troubleshooting.md](troubleshooting.md)（約 60 項目。33 か所は偽の XIAO などで再現した原文のメッセージ）。
 
 ---
@@ -76,12 +76,12 @@ uv sync --extra mujoco       # MuJoCo 4.x（CPU）。08 章で使う
 | 追加の URL | `https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json` | `https://siliconlabs.github.io/arduino/package_arduinosilabs_index.json` |
 | コア | `Seeeduino:nrf52`（「Seeed nRF52 Boards」、**mbed でない方**） | `SiliconLabs:silabs` |
 | FQBN | `Seeeduino:nrf52:xiaonRF52840Sense` | `SiliconLabs:silabs:xiao_mg24`。CI は無線を使わない `SiliconLabs:silabs:xiao_mg24:protocol_stack=none` で通した（メニュー `protocol_stack` は `matter`・`zigbee`・`ble_arduino`・`ble_silabs`・`none`） |
-| CI で使っている版 | コア `Seeeduino:nrf52@1.1.13`、ライブラリ `Seeed Arduino LSM6DS3@2.0.8`、arduino-cli 1.6.0、`adafruit-nrfutil==0.5.3.post16`、Python 3.12 | コア `SiliconLabs:silabs@5.0.0`、同じライブラリ、arduino-cli 1.6.0 |
+| CI で使っているバージョン | コア `Seeeduino:nrf52@1.1.13`、ライブラリ `Seeed Arduino LSM6DS3@2.0.8`、arduino-cli 1.6.0、`adafruit-nrfutil==0.5.3.post16`、Python 3.12 | コア `SiliconLabs:silabs@5.0.0`、同じライブラリ、arduino-cli 1.6.0 |
 | ライブラリ | Seeed Arduino LSM6DS3（2.0.8） | 同じ（2.0.4 以上） |
 | 確かめた度合い | コンパイル【試した】（S005 でこの PC、GitHub Actions の `firmware` ジョブで 2026-11-19 18:13 の初回に成功）、書き込み【未確認】 | コンパイルは GitHub Actions の `firmware-mg24` ジョブで初回に成功（コンパイルが通っただけ）。書き込み・動作【未確認】。**コアが `printf` の浮動小数を持たず、IMU の行が空になる見込み**（S053。未確認）。ローカルでは入れていない（/tmp があふれた） |
 
 出典: https://wiki.seeedstudio.com/XIAO_BLE/ 、https://wiki.seeedstudio.com/xiao_mg24_getting_started/ 【文書】。
-上の FQBN とコア名は、`arduino-cli board search xiao` の出力でも確かめた【試した】（arduino-cli 1.6.0）。MG24 のコア 5.0.0 の `boards.txt` に `xiao_mg24.name=Seeed Studio XIAO MG24 (Sense)` がある（監査 4 巡目、GitHub のタグ）。版は CI の `ci.yml` が正で、上げるときは意識して上げる。
+上の FQBN とコア名は `arduino-cli board search xiao` の出力でも確かめた【試した】（arduino-cli 1.6.0）。MG24 のコア 5.0.0 の `boards.txt` に `xiao_mg24.name=Seeed Studio XIAO MG24 (Sense)` がある（監査 4 巡目、GitHub のタグ）。バージョンは CI の `ci.yml` が正で、上げるときは意識して上げる。
 Seeed wiki は IMU を使うなら mbed 版を勧めているが、本リポジトリのスケッチは非 mbed 版で書いてある（03 章）。
 
 ### 2.2 Arduino IDE 2 で【文書】
@@ -104,9 +104,9 @@ arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense firmware/xiao_imu_d
 arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 firmware/xiao_imu_drive  # 【未確認】
 ```
 
-- **`python` と `adafruit-nrfutil` が PATH に要る**【試した】(S005)。コンパイルの最後に書き込み用の zip を作るため。Ubuntu では `python` が無く `python3` だけのことが多い。
+- `python` と `adafruit-nrfutil` が PATH に要る【試した】(S005)。コンパイルの最後に書き込み用の zip を作るため。Ubuntu では `python` が無く `python3` だけのことが多い。
   例: `pipx install adafruit-nrfutil`、`sudo apt install python-is-python3`（どちらもこの PC では実行していない）。
-- **ディスク**【試した】（S005 の置き場を `du` で測った）: arduino-cli 本体 40 MB、nRF52 コアとツール一式で約 **1 GB**（コア 72 MB、コンパイラなどのツール 837 MB）。MG24 のコアはさらに約 620 MB（S005 の記録）。`/tmp` が RAM ディスクの環境では置き場をホーム側にする。
+- **ディスク**【試した】（S005 の置き場を `du` で測った）: arduino-cli 本体 40 MB、nRF52 コアとツール一式で約 1 GB（コア 72 MB、コンパイラなどのツール 837 MB）。MG24 のコアはさらに約 620 MB（S005 の記録）。`/tmp` が RAM ディスクの環境では置き場をホーム側にする。
 
 ### 2.4 ブートローダーに入れる【文書】
 
@@ -119,7 +119,7 @@ arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 fir
 
 ### 3.1 Windows 側（usbipd-win）【文書】
 
-出典: https://learn.microsoft.com/en-us/windows/wsl/connect-usb （en-us の頁。`ms.date` は 2024-04-16、ページ下端は「Last updated on 2024-07-02」。2026-11-19 17:50 に監査 4 巡目が取得。日本語版は読んでいない。usbipd-win 5.0.0 以上が前提）、https://github.com/dorssel/usbipd-win/releases （最新 **5.3.0**、2025-10-11 公開。JST 2026-11-19 14:10 に Releases の API で確認）。
+出典: https://learn.microsoft.com/en-us/windows/wsl/connect-usb （en-us の頁。`ms.date` は 2024-04-16、ページ下端は「Last updated on 2024-07-02」。2026-11-19 17:50 に監査 4 巡目が取得。日本語版は読んでいない。usbipd-win 5.0.0 以上が前提）、https://github.com/dorssel/usbipd-win/releases （最新 5.3.0、2025-10-11 公開。JST 2026-11-19 14:10 に Releases の API で確認）。
 
 ```powershell
 winget install --interactive --exact dorssel.usbipd-win   # 入れる。--interactive を外すと勝手に再起動することがある
@@ -151,7 +151,7 @@ groups | grep -w dialout                     # 無ければ下を実行して入
 - nRF52840 は書き込みのときブートローダーに入り直し、USB の機器としてつなぎ直される（ID も変わる）。WSL に渡した機器は「抜くと外れる」ので、**書き込みの途中で WSL から見えなくなる**ことがある【文書】から推した。実機では【未確認】。
 - 避け方:
   1. **書き込みは Windows 側の Arduino IDE、WSL ではログ取りだけ**。いちばん確実。書き込む前に `usbipd detach`、終わったら `attach` し直す。
-  2. `usbipd attach --wsl --busid 4-4 --auto-attach` で、つなぎ直されたら自動で渡し直させる。リリースノートに「WSL auto-attach の改善」(5.1.0)、未接続の機器を対象にする `--unplugged` (4.4.0) がある【文書】。ただし ID の変わったブートローダーの機器が bind 済み扱いになるか、間に合うかは【未確認】。`usbipd attach --help` で手元の版のオプションを確かめる。
+  2. `usbipd attach --wsl --busid 4-4 --auto-attach` で、つなぎ直されたら自動で渡し直させる。リリースノートに「WSL auto-attach の改善」(5.1.0)、未接続の機器を対象にする `--unplugged` (4.4.0) がある【文書】。ただし ID の変わったブートローダーの機器が bind 済み扱いになるか、間に合うかは【未確認】。`usbipd attach --help` で手元のバージョンのオプションを確かめる。
 
 ---
 
@@ -182,7 +182,7 @@ Windows 側で見るなら `uv run python -m serial.tools.miniterm COM3 115200`�
 | 書き込みの途中で WSL からポートが消える | ブートローダーに入り直してつなぎ直される | 書き込みは Windows 側で（3.3） |
 | `/dev/ttyACM0` が `Permission denied` | `dialout` グループに入っていない | `sudo usermod -aG dialout $USER` して入り直す |
 | ボードがポートとして出ない | 充電専用のケーブル、またはスケッチが固まっている | データ用ケーブルにする。リセット 2 回でブートローダーへ（MG24 は PC1 を GND） |
-| `Serial` が未定義と言われてコンパイルできない（別のコアや別のスケッチのとき） | Seeed wiki は非 mbed 版の USB シリアルに TinyUSB を勧めている。**今のスケッチ `xiao_imu_drive` は `#include <Adafruit_TinyUSB.h>` を入れておらず、非 mbed 版のコア 1.1.13 で CI のコンパイルが通る**（コアが TinyUSB を同梱し、`Serial` は何も足さずに使える）。この行が当たる条件は、別のコアの版や別のスケッチを使うとき【wiki が勧める条件は未確認】 | コアを 1.1.13 に揃える（2.3）。それでも出るときだけ `#include <Adafruit_TinyUSB.h>` を足す（Seeed wiki） |
+| `Serial` が未定義と言われてコンパイルできない（別のコアや別のスケッチのとき） | Seeed wiki は非 mbed 版の USB シリアルに TinyUSB を勧めている。今のスケッチ `xiao_imu_drive` は `#include <Adafruit_TinyUSB.h>` を入れておらず、非 mbed 版のコア 1.1.13 で CI のコンパイルが通る（コアが TinyUSB を同梱し、`Serial` は何も足さずに使える）。この行が当たる条件は、別のコアのバージョンや別のスケッチを使うとき【wiki が勧める条件は未確認】 | コアを 1.1.13 に揃える（2.3）。それでも出るときだけ `#include <Adafruit_TinyUSB.h>` を足す（Seeed wiki） |
 
 ---
 
@@ -201,10 +201,10 @@ solidcraft-cli --version      # solidcraft-cli 0.44.1
 ```
 
 - 置き場所は `~/.local/opt/`（展開した物）と `~/.local/bin/`（symlink、PATH に要る）。root・FUSE・GPU は要らない。GPU の無い WSL2 では `snapshot`・`gpu` は返らない。
-- SHA-256 は公式の Release の資産の digest と `SHA256SUMS.txt` と手元の `sha256sum` の 3 つで一致した。版を上げるときは意識して上げ、`.github/workflows/cad.yml` の `SC_VERSION`・`SC_SHA256` と揃える。
+- SHA-256 は公式の Release の資産の digest と `SHA256SUMS.txt` と手元の `sha256sum` の 3 つで一致した。バージョンを上げるときは意識して上げ、`.github/workflows/cad.yml` の `SC_VERSION`・`SC_SHA256` と揃える。
 - 動作の確認: `solidcraft-cli run cad/plate.json --out /tmp/plate.step`（STEP ができる）、`bash cad/check.sh <出力フォルダ>`（体積・質量・Izz が `cad/expected.csv` と合う。省略すると `cad-out/` に書く）、`uv run python -m physlearn.solidcraft_props <mass.json>`。ブラウザー版・GUI の操作は【未実行】。
 
-MCP（Claude Code から設計させる）。**統括が 17:58 に登録済み**（local スコープ。`.mcp.json` は作っていない）:
+MCP（Claude Code から設計させる）。統括が 17:58 に登録済み（local スコープ。`.mcp.json` は作っていない）:
 
 ```bash
 claude mcp add solidcraft -- solidcraft-cli mcp --allow-path <リポジトリの根>/cad
