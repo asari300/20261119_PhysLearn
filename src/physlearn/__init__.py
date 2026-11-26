@@ -109,7 +109,10 @@ def main(argv=None) -> None:
         from physlearn.log import read_csv
         from physlearn.sysid import apply, identify
 
-        est = identify(read_csv(a.csv))
+        try:
+            est = identify(read_csv(a.csv))
+        except ValueError as e:
+            raise SystemExit(str(e)) from None
         for k, v in est.items():
             print(f"{k:11s} {v:.4f}")
         if "yaw_gain" not in est:

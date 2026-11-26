@@ -13,7 +13,7 @@ import numpy as np
 from physlearn.log import read_csv
 from physlearn.randomize import SPREAD
 from physlearn.sim import Params
-from physlearn.sysid import apply, first_order, identify, segments
+from physlearn.sysid import NO_STILL, apply, first_order, identify, segments
 
 # 雑音だけなら残差 RMSE / 雑音 は 1 前後。2 倍を超えたら雑音では説明できない分がある
 LIMIT = 2.0
@@ -26,8 +26,11 @@ def model_gz(log: dict, p: Params) -> np.ndarray:
 
 
 def fit(log: dict, p: Params) -> dict:
-    u, r = (log["right"] - log["left"]) / 2, log["gz"] - model_gz(log, p)
+    u = (log["right"] - log["left"]) / 2
     segs = segments(u)
+    if not segs:
+        raise ValueError(NO_STILL)
+    r = log["gz"] - model_gz(log, p)
     i0, j0 = segs[0]
     noise = float(log["gz"][i0 + (j0 - i0) // 2 : j0].std(ddof=1))  # sysid.identify と同じ静止区間の後半
     if not noise > 0:  # 比 RMSE / 雑音 が inf・NaN になり、判定が意味を失う
@@ -93,6 +96,8 @@ def split(log: dict) -> tuple[dict, dict]:
     """最初の静止 + 正の向きのステップ（とその後の 0）/ 同じ静止 + 負の向き、の 2 本に分ける。"""
     u = (log["right"] - log["left"]) / 2
     segs = segments(u)
+    if not segs:
+        raise ValueError(NO_STILL)
     pos, neg, sign = [segs[0]], [segs[0]], 0.0
     for i, j in segs[1:]:
         sign = np.sign(u[j - 1]) or sign  # 0 の区間は直前のステップの側に付ける

@@ -65,3 +65,18 @@ def test_no_drift_without_repeated_amplitude():
     log = as_log(sim_log(SimPlant(HIDDEN, seed=0)))
     n = 1300  # 古い 13 s の実験（同じ振幅が 2 回ずつ）の長さで切る
     assert "drift" not in identify({c: v[:n] for c, v in log.items()})
+
+
+def test_header_only_csv_is_refused_with_a_sentence(tmp_path, capsys):
+    from physlearn import main as cli
+    from physlearn.compare import fit, split
+    from physlearn.log import LOG_COLUMNS
+
+    p = tmp_path / "empty.csv"
+    p.write_text(",".join(LOG_COLUMNS) + "\n")
+    log = read_csv(p)
+    for f in (identify, split, lambda lg: fit(lg, Params())):
+        with pytest.raises(ValueError, match="静止区間"):
+            f(log)
+    with pytest.raises(SystemExit, match="静止区間"):  # トレースバックではなく 1 行の文で終わる
+        cli(["sysid", str(p)])
