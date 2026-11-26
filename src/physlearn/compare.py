@@ -17,6 +17,7 @@ from physlearn.sysid import NO_STILL, apply, first_order, identify, segments
 
 # 雑音だけなら残差 RMSE / 雑音 は 1 前後。2 倍を超えたら雑音では説明できない分がある
 LIMIT = 2.0
+NO_MOVE = "動かした区間が無い（静止だけのログ？）。`link id` か `sim-log` のログを渡す"
 
 
 def model_gz(log: dict, p: Params) -> np.ndarray:
@@ -30,6 +31,8 @@ def fit(log: dict, p: Params) -> dict:
     segs = segments(u)
     if not segs:
         raise ValueError(NO_STILL)
+    if len(segs) < 2:
+        raise ValueError(NO_MOVE)
     r = log["gz"] - model_gz(log, p)
     i0, j0 = segs[0]
     noise = float(log["gz"][i0 + (j0 - i0) // 2 : j0].std(ddof=1))  # sysid.identify と同じ静止区間の後半

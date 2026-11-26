@@ -61,3 +61,12 @@ def test_noise_free_log_is_refused():
     p = replace(HIDDEN, gyro_noise=0.0, accel_noise=0.0)
     with pytest.raises(ValueError, match="雑音が 0"):
         fit(as_log(sim_log(SimPlant(p, seed=0))), p)
+
+
+def test_still_only_log_is_refused_by_fit_and_holdout(log):
+    from physlearn.compare import holdout
+
+    still = {c: v[:100] for c, v in log.items()}  # 最初の静止区間だけ（指令が 0 のまま）
+    for f in (lambda lg: fit(lg, HIDDEN), holdout):
+        with pytest.raises(ValueError, match="動かした区間が無い"):
+            f(still)
