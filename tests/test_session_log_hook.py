@@ -66,3 +66,12 @@ def test_token_longer_than_the_margin_across_the_boundary():
     for start in (n - 20, n + 256 - 20):
         out = hook.clip("x" * start + " ghp_" + "A" * 3000 + " tail", n)
         assert "ghp_A" not in out and "AAAA" not in out, start
+
+
+def test_token_after_a_word_character_is_redacted():
+    """トークンの規則に頭の \\b を付けていたので、直前が語の文字（`x`・`KEY_`・`token`）だと掛からなかった（S129、問題 34）。"""
+    for tok in ("ghp_" + "A" * 36, "sk-" + "A" * 30, "AKIA" + "A" * 16, "xoxb-" + "1" * 12):
+        for text in (tok, "x" + tok, "KEY_" + tok, "token" + tok):
+            assert tok not in hook.redact(text), text
+            assert hook.leftovers(text) == [tok], text
+    assert "AKIA" + "A" * 17 in hook.redact("AKIA" + "A" * 17)       # 末尾の \b は残す（長い大文字の連なりは鍵ではない）
