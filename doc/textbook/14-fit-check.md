@@ -53,6 +53,27 @@ uv run physlearn sysid mujoco.csv --out mujoco_id.json
 uv run python -c "from dataclasses import replace; from physlearn.sim import Params; p=Params.load('hidden_id.json'); replace(p, motor_tau=2*p.motor_tau).save('hidden_tau2.json')"
 ```
 
+出力（`python -c` の行は何も出しません）:
+
+```
+hidden.csv: 1700 行
+gyro_bias   0.0780
+gyro_noise  0.0154
+yaw_gain    8.0063
+deadband    0.1500
+motor_tau   0.2011
+drift       -0.0003
+→ hidden_id.json
+mujoco.csv: 1700 行
+gyro_bias   0.0193
+gyro_noise  0.0051
+yaw_gain    17.9740
+deadband    0.0000
+motor_tau   0.0704
+drift       -0.0000
+→ mujoco_id.json
+```
+
 | | (a) 同じ式の代役 | (b) MuJoCo の代役 | (c) τ を 2 倍に外した sim |
 | --- | --- | --- | --- |
 | コマンド | `fit hidden.csv hidden_id.json` | `fit mujoco.csv mujoco_id.json` | `fit hidden.csv hidden_tau2.json` |
@@ -66,6 +87,50 @@ uv run python -c "from dataclasses import replace; from physlearn.sim import Par
 | 判定 | 雑音の範囲で合っている | ゲインでも時定数でも説明できない → 式の形が違う | 時定数（か遅延）がずれている |
 
 （単位は rad/s。）
+
+上の表の数字は、3 つの `fit` の出力から次の行を抜いたものです（出力の全体は `sim-log` と `sysid` を走らせ直すと出ます）。
+
+(a)
+
+<!-- docs_check: output uv run python -m physlearn.compare fit hidden.csv hidden_id.json -->
+```
+雑音（静止の標準偏差） 0.0154 rad/s
+RMSE 全体     0.0150 rad/s  （雑音の 1.0 倍）
+RMSE 立ち上がり  0.0150 rad/s  （雑音の 1.0 倍）
+RMSE 定常     0.0151 rad/s  （雑音の 1.0 倍）
+残差と指令の相関 +0.05  指令の変化との相関 +0.01
+ゲインだけを 1.00 倍にすると、残差の 0% を説明できる（線形近似）
+時定数だけを 1.00 倍にすると、残差の 1% を説明できる（線形近似）
+判定: 雑音の範囲で合っている
+```
+
+(b)
+
+<!-- docs_check: output uv run python -m physlearn.compare fit mujoco.csv mujoco_id.json -->
+```
+雑音（静止の標準偏差） 0.0051 rad/s
+RMSE 全体     0.0179 rad/s  （雑音の 3.5 倍）
+RMSE 立ち上がり  0.0319 rad/s  （雑音の 6.2 倍）
+RMSE 定常     0.0071 rad/s  （雑音の 1.4 倍）
+残差と指令の相関 -0.11  指令の変化との相関 -0.55
+ゲインだけを 1.00 倍にすると、残差の 0% を説明できる（線形近似）
+時定数だけを 1.00 倍にすると、残差の 1% を説明できる（線形近似）
+判定: ゲインでも時定数でも説明できない → 式の形が違う（遅延・左右差・非線形など）
+```
+
+(c)
+
+<!-- docs_check: output uv run python -m physlearn.compare fit hidden.csv hidden_tau2.json -->
+```
+雑音（静止の標準偏差） 0.0154 rad/s
+RMSE 全体     0.3144 rad/s  （雑音の 20.4 倍）
+RMSE 立ち上がり  0.3486 rad/s  （雑音の 22.7 倍）
+RMSE 定常     0.2015 rad/s  （雑音の 13.1 倍）
+残差と指令の相関 +0.75  指令の変化との相関 +0.01
+ゲインだけを 1.11 倍にすると、残差の 10% を説明できる（線形近似）
+時定数だけを 0.41 倍にすると、残差の 88% を説明できる（線形近似）
+判定: 時定数（か遅延）がずれている
+```
 
 - **(a)** 雑音の範囲に入りました。RMSE は雑音のちょうど 1.0 倍で、残差と指令の相関も +0.05 です。ゲインを変えても時定数を変えても、残差はほとんど減りません（0% と 1%）。同じ式の代役を同定して当てはめたのだから、これが期待どおりの姿です。
 以前の版では、ここが 1.5 倍で、相関が +0.52 あり、「ゲインを 1.01 倍にすると残差の 49% が消える」と出ていました。同定したゲインがわずかに小さかったからです。原因は、sysid が「各段の後ろ 30% を定常とみなす」窓でした。τ = 0.2 s では 1 s の段の後ろ 30% でもまだ落ち着いておらず、ゲインが下に出ていました（7.860、真は 8.0）。
@@ -96,6 +161,23 @@ uv run python -m physlearn.compare holdout hidden.csv
 uv run python -m physlearn.compare holdout mujoco.csv
 ```
 
+出力から、見出しと「RMSE 全体」と「判定」の行だけ抜きます（hidden の正・負、mujoco の正・負の順）:
+
+```text
+== 同定に使った（正の向き）
+RMSE 全体     0.0147 rad/s  （雑音の 1.0 倍）
+判定: 雑音の範囲で合っている
+== 使っていない（負の向き）
+RMSE 全体     0.0164 rad/s  （雑音の 1.1 倍）
+判定: 雑音の範囲で合っている
+== 同定に使った（正の向き）
+RMSE 全体     0.0173 rad/s  （雑音の 3.4 倍）
+判定: ゲインでも時定数でも説明できない → 式の形が違う（遅延・左右差・非線形など）
+== 使っていない（負の向き）
+RMSE 全体     0.0176 rad/s  （雑音の 3.4 倍）
+判定: ゲインでも時定数でも説明できない → 式の形が違う（遅延・左右差・非線形など）
+```
+
 | | 同定に使った（正の向き） | 使っていない（負の向き） |
 | --- | --- | --- |
 | hidden の RMSE 全体（雑音の何倍） | 0.0147（1.0） | 0.0164（1.1） |
@@ -118,8 +200,28 @@ uv run python -c "
 from dataclasses import replace; from physlearn import HIDDEN
 for i,(g,t,d) in enumerate([(1.0,1.0,0.0),(0.9,1.1,0.02),(1.1,0.9,-0.02),(0.95,1.15,0.01)]):
     replace(HIDDEN, motor_gain=HIDDEN.motor_gain*g, motor_tau=HIDDEN.motor_tau*t, deadband=HIDDEN.deadband+d).save(f'v{i}.json')"
-for i in 0 1 2 3; do uv run physlearn sim-log v$i.csv --params v$i.json --seed $i; done
+uv run physlearn sim-log v0.csv --params v0.json --seed 0
+uv run physlearn sim-log v1.csv --params v1.json --seed 1
+uv run physlearn sim-log v2.csv --params v2.json --seed 2
+uv run physlearn sim-log v3.csv --params v3.json --seed 3
 uv run python -m physlearn.compare spread v0.csv v1.csv v2.csv v3.csv
+```
+
+出力:
+
+```
+v0.csv: 1700 行
+v1.csv: 1700 行
+v2.csv: 1700 行
+v3.csv: 1700 行
+4 回の同定から。gain・tau は平均に対する比の (下, 上)、deadband・bias は足す量の ± の半幅
+キー         平均      実測 (下, 上)           SPREAD                  比
+motor_gain   13.1700  (-0.088, +0.114)        (-0.300, +0.140)        81%
+motor_tau     0.2080  (-0.131, +0.104)        (-0.140, +0.600)        94%
+deadband      0.1525  ±0.0200                 ±0.030                  67%
+gyro_bias     0.0784  ±0.0036                 ±0.020                  18%
+提案: 回数が少ないと幅を小さく見積もるので、実測の幅の 1.5 倍を SPREAD の候補にする（書き換えはしない）
+   {'motor_gain': (-0.133, 0.171), 'motor_tau': (-0.196, 0.156), 'deadband': 0.03, 'gyro_bias': 0.005}
 ```
 
 `spread` は CSV なら同定してから、JSON ならそのまま読みます。
