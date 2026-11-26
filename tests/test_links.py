@@ -1,7 +1,7 @@
 """教材・文書の相対リンク `[..](path)` と画像 `![..](path)` が、実在のファイルを指すことを確かめる。
 
 対象は、リポジトリ内の `.md`。除くもの:
-  - `log/sessions/`（会話記録の写し）、`log/work/2026-*`・`log/review/2026-*`（その時点の記録。後で動いたファイルを指していてよい）
+  - `log/sessions/`（会話記録の写し）、`log/local/`（その元。フックの出力でコミットしない）、`log/work/2026-*`・`log/review/2026-*`（その時点の記録。後で動いたファイルを指していてよい）
   - `.git-worktree/`・`.venv/` など作業用の場所
 見ないもの: `http(s):`・`mailto:` などの URL、`#` だけのリンク、コードブロックと `コード` の中。`path#anchor` は `path` の存在だけ見る。
 """
@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
-SKIP_DIRS = {".git", ".git-worktree", ".venv", "node_modules", "__pycache__", "sessions", "cad-out"}
+SKIP_DIRS = {".git", ".git-worktree", ".venv", "node_modules", "__pycache__", "sessions", "local", "cad-out"}
 SKIP_RECORDS = re.compile(r"^log/(work|review)/2026-")
 LINK = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+[\"'][^)]*)?\)")
 CODE_SPAN = re.compile(r"`[^`\n]*`")
