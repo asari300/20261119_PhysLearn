@@ -89,11 +89,12 @@ def _windows_profiles() -> set[str]:
 
 # 順番に意味がある。具体的なもの（トークン・パス）から先に潰す。
 REDACTIONS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,}"), "<redacted>"),   # ghp_ gho_ ghu_ ghs_ ghr_
+    # 頭に \b を付けない。`xghp_…`・`KEY_ghp_…` のように直前が語の文字でも伏せる（S129、問題 34）。
+    (re.compile(r"gh[pousr]_[A-Za-z0-9]{36,}"), "<redacted>"),     # ghp_ gho_ ghu_ ghs_ ghr_
     (re.compile(r"github_pat_[A-Za-z0-9_]{20,}"), "<redacted>"),
-    (re.compile(r"\bsk-[A-Za-z0-9_\-]{20,}"), "<redacted>"),
-    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "<redacted>"),
-    (re.compile(r"\bxox[abprs]-[A-Za-z0-9\-]{10,}"), "<redacted>"),
+    (re.compile(r"sk-[A-Za-z0-9_\-]{20,}"), "<redacted>"),
+    (re.compile(r"AKIA[0-9A-Z]{16}\b"), "<redacted>"),
+    (re.compile(r"xox[abprs]-[A-Za-z0-9\-]{10,}"), "<redacted>"),
     (re.compile(r"(?i)(api[_-]?key|private[_-]?key|secret|token|password|passwd)\b([ \t]*[:=](?!:)[ \t]*['\"]?)([^\s'\"]{8,})"),
      r"\1\2<redacted>"),
     (re.compile(r"(?i)\b(Bearer\s+)[A-Za-z0-9._~+/=\-]{8,}"), r"\1<redacted>"),

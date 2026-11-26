@@ -244,24 +244,24 @@ def jog_hint(left: float, right: float) -> str:
     return f"右 - 左 が{'正' if right > left else '負'} → gz {'正（左回り）' if right > left else '負（右回り）'}が正しい向き"
 
 
-def run_loop(plant: SerialPlant, ctrl_factory, target: float, seconds: float, dt: float = 0.01):
+def run_loop(plant: SerialPlant, ctrl_factory, target: float, seconds: float, dt: float = 0.01, rows: list | None = None):
     """+target → -target の 2 回、control.run で回す（正味の回転を 0 に近づけ、ケーブルをねじらない）。
 
     返り値: (ログの行, [(符号, metrics), ...], 作動の理由)。評価は gz からバイアスを引いたもの（実機には真値が無い）。
     安全ゲートが作動したら、そこで止めて（次の回に進まず）理由を返す。作動しなければ理由は ""。ゲートの作動では例外を投げないので、集めた行は呼び出し側が書ける。
-    通信の例外（USB が抜けた、など）はそのまま上がり、その回までの行は返らない（`id` の sim_log のようには残らない）。
+    通信の例外（USB が抜けた、など）はそのまま上がる。rows を渡せば、そこに行を足していくので、例外のときもその回までの行が残る（`id` の sim_log と同じ）。
     """
     from physlearn.control import SafetyGate, metrics, run
 
-    rows, res = [], []
+    rows = [] if rows is None else rows
+    res = []
     for sign in (1, -1):
         ctrl, gate = ctrl_factory(), SafetyGate()
-        r, t, y = run(plant, ctrl, sign * target, seconds, dt, gate=gate)
+        _, t, y = run(plant, ctrl, sign * target, seconds, dt, gate=gate, rows=rows)
         plant.stop()
         # run は reset から測り始める。回ったままだと次の回の初期値になるので、止まるまで待つ
         for _ in range(round(REST_S / dt)):
             plant.step(Command(0.0, 0.0), dt)
-        rows += r
         # ゲートは step の前の観測しか見ないので、各回の最後のサンプルはここで同じ gz_limit で見る
         why = gate.tripped or ("" if np.all(np.abs(y) <= gate.gz_limit) else f"|gz| > {gate.gz_limit}（最後のサンプル）")
         if why:
@@ -330,10 +330,13 @@ def main(argv=None) -> None:
             print(f"gz の平均（後半）{g:+.3f} rad/s（バイアス込み）。{jog_hint(a.left, a.right)}")
             return
         if a.mode == "run":
-            rows, res, why = run_loop(plant, lambda: design(base, tc), a.target, a.seconds, a.dt)
-            if a.out:
-                write_csv(a.out, rows)
-                print(f"wrote {a.out}")
+            rows = []
+            try:
+                _, res, why = run_loop(plant, lambda: design(base, tc), a.target, a.seconds, a.dt, rows)
+            finally:  # 途中で失敗しても、そこまでのログを残す（id と同じ）
+                if a.out and rows:
+                    write_csv(a.out, rows)
+                    print(f"wrote {a.out}")
             for sign, m in res:
                 print(
                     f"[{'+' if sign > 0 else '-'}{a.target}] 整定 {m['settle']:.2f} s  行き過ぎ {m['overshoot'] * 100:.1f} %"
