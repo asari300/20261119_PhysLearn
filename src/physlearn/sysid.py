@@ -69,6 +69,8 @@ def identify(log: dict) -> dict:
 
     # 動いたステップの数: 各区間の後ろ 30% を定常とみなして、雑音の 10 倍を超えたもの
     ss = [np.sign(u[j - 1]) * y[i + int(0.7 * (j - i)) : j].mean() for i, j in segs[1:] if u[j - 1] != 0]
+    if sum(v < -10 * noise for v in ss) >= 2:  # 指令と逆向きに回っている。向きを反転して当てはめると K < 0 を 0 に切って「動いていない」に見える
+        raise ValueError("指令と逆向きに回っている。配線か --axes を確かめる")
     if sum(v > 10 * noise for v in ss) < 2:  # 静止だけのログ（モーター無しの XIAO など）ではゲインとデッドバンドを分けられない
         return {"gyro_bias": bias, "gyro_noise": noise}
     # モデル K*dz(u; d) を τ の格子に通した応答は K に比例するので、(d, τ) ごとに K は最小二乗で閉じた形で出る。

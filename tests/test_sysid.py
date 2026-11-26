@@ -80,3 +80,15 @@ def test_header_only_csv_is_refused_with_a_sentence(tmp_path, capsys):
             f(log)
     with pytest.raises(SystemExit, match="静止区間"):  # トレースバックではなく 1 行の文で終わる
         cli(["sysid", str(p)])
+
+
+def test_reversed_motor_is_called_reversed_not_still(tmp_path):
+    from physlearn import main as cli
+
+    log = as_log(sim_log(SimPlant(HIDDEN, seed=0)))
+    log["gz"] = -log["gz"]  # 配線が逆
+    with pytest.raises(ValueError, match="逆向き"):
+        identify(log)
+    write_csv(tmp_path / "rev.csv", [[log[c][i] for c in log] for i in range(len(log["t"]))])
+    with pytest.raises(SystemExit, match="逆向き"):
+        cli(["sysid", str(tmp_path / "rev.csv")])
