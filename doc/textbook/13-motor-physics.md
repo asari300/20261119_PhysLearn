@@ -78,7 +78,21 @@ L = 0 と置くと電気の式から `i = (V·u − Ke·n·ω)/R` です。
 ### 5.1 L を無視してよい範囲
 
 MuJoCo のモデルと同じ定数（5.2 節）で、L を変えて `motor.simulate()` の 63% 時刻を測りました。
-一次遅れの τ は 0.0673 s です。
+一次遅れの τ は 0.0673 s です。次の行で測りました。
+
+```bash
+uv run python -c "from dataclasses import replace; from physlearn import motor; m,j=motor.mujoco_model(); k,tau=motor.first_order(m,j); print(f'tau {tau:.4f} s'); [print(f'L/R {x}  63% {t[(w>=0.632*w[-1]).argmax()]:.4f} s') for x in (0.0001,0.001,0.005,0.02) for t,w in [motor.simulate(replace(m,L=x*m.R),j,0.5,10*tau)]]"
+```
+
+出力:
+
+```
+tau 0.0673 s
+L/R 0.0001  63% 0.0673 s
+L/R 0.001  63% 0.0673 s
+L/R 0.005  63% 0.0675 s
+L/R 0.02  63% 0.0742 s
+```
 
 | L/R [s] | 2 階の式の 63% 時刻 [s] |
 | --- | --- |
@@ -101,6 +115,20 @@ MuJoCo のモデルと同じ定数（5.2 節）で、L を変えて `motor.simul
 - 車体の箱（0.25 kg、0.12 × 0.09 m）: I = 4.6875e-4 kg m²
 - I_yaw = 箱 + 車輪 2 個 × (m·(T/2)² + J_w) = 5.83e-4 kg m²
 - J_eff = 1.122e-4 kg m²（T = 0.10 m）
+
+式と 2 階の式（L = 1e-6、0.5 s まで積分）の値は、次の行で出せます。ヨー角速度は車輪の角速度の 2r/T = 0.6 倍です。
+
+```bash
+uv run python -c "from physlearn import motor; m,j=motor.mujoco_model(); k,tau=motor.first_order(m,j); t,w=motor.simulate(m,j,0.5,0.5); print(f'J_eff {j:.4e} kg m^2'); print(f'式 K {k:.3f}  tau {tau:.4f} s  定常ヨー {0.6*0.5*k:.3f} rad/s'); print(f'2階 t=0.5 s のヨー {0.6*w[-1]:.3f} rad/s  63% {t[(w>=0.632*w[-1]).argmax()]:.4f} s')"
+```
+
+出力:
+
+```
+J_eff 1.1217e-04 kg m^2
+式 K 30.000  tau 0.0673 s  定常ヨー 9.000 rad/s
+2階 t=0.5 s のヨー 8.995 rad/s  63% 0.0672 s
+```
 
 MuJoCo が読んだ慣性（`model.body_inertia`）は、箱の z が 4.6875e-4、車輪が 7.2e-6 で、手計算と一致しました。
 関節の armature と damping はすべて 0 でした。
@@ -181,6 +209,22 @@ K は電圧にほぼ比例します（b が小さいとき）。
 `SPREAD["motor_gain"]` の下側（−30%）は、この表の −27% を丸めたものです（下の「SPREAD への提案」）。
 電池を替える・消耗まで使う前提なら、下側がこれだけ要ります。
 
+表の K の比は、`motor.first_order` の電源電圧 V だけを変えて出せます（最後の 3.2 V は終止電圧 0.8 V × 4 本）。
+
+```bash
+uv run python -c "from dataclasses import replace; from physlearn import motor; m,j=motor.mujoco_model(); k0=motor.first_order(replace(m,V=6.0),j)[0]; [print(f'V {v} K比 {motor.first_order(replace(m,V=v),j)[0]/k0:.3f}') for v in (6.4,6.0,4.8,4.4,3.2)]"
+```
+
+出力:
+
+```
+V 6.4 K比 1.067
+V 6.0 K比 1.000
+V 4.8 K比 0.800
+V 4.4 K比 0.733
+V 3.2 K比 0.533
+```
+
 **内部抵抗による電圧降下は表に入っていません。**
 Energizer E91 のデータシートの内部抵抗は新品で 1 本 150〜300 mΩ なので、4 本で 0.6〜1.2 Ω です（同じ調査の節）。
 表の電圧は電流を流さないときの値で、モーターに電流が流れると下がります。
@@ -200,6 +244,21 @@ Energizer E91 のデータシートの内部抵抗は新品で 1 本 150〜300 m
 | +0.05 kg | 0.0774 | 1.15 |
 | +0.10 kg | 0.0876 | 1.30 |
 | +0.20 kg | 0.1078 | 1.60 |
+
+表は、荷物の分の箱の慣性を `J_eff` に足して `first_order` に渡して出しました。
+
+```bash
+uv run python -c "from physlearn import motor; m,j=motor.mujoco_model(); t0=motor.first_order(m,j)[1]; f=lambda d: motor.first_order(m,j+d/12*(0.12**2+0.09**2)*2*0.03**2/0.10**2)[1]; [print(f'+{d} kg  tau {f(d):.4f} s  比 {f(d)/t0:.2f}') for d in (0,0.05,0.10,0.20)]"
+```
+
+出力:
+
+```
++0 kg  tau 0.0673 s  比 1.00
++0.05 kg  tau 0.0774 s  比 1.15
++0.1 kg  tau 0.0876 s  比 1.30
++0.2 kg  tau 0.1078 s  比 1.60
+```
 
 τ は荷物で長くなる方にしか動かないので、対称な ±30% より「−10%〜+60%」のような非対称な幅の方が物理に合います。
 

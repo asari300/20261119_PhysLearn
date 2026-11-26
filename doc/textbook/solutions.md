@@ -133,6 +133,17 @@ g = SafetyGate(max_rate=2.0); o = Obs(0, 0, 0, 9.8, 0, 0, 0)
 for _ in range(5): print(g(Command(-0.5, 0.5), o, 0.01))
 ```
 
+上の `python` ブロックの出力（同じ式を `python -c` で走らせた）:
+
+<!-- docs_check: output uv run python -c "from physlearn.control import SafetyGate; from physlearn.api import Command, Obs; g = SafetyGate(max_rate=2.0); o = Obs(0, 0, 0, 9.8, 0, 0, 0); [print(g(Command(-0.5, 0.5), o, 0.01)) for _ in range(5)]" -->
+```
+Command(left=-0.02, right=0.02)
+Command(left=-0.04, right=0.04)
+Command(left=-0.06, right=0.06)
+Command(left=-0.08, right=0.08)
+Command(left=-0.1, right=0.1)
+```
+
 0.15 s は整定の仕様 0.6 s より短いので、届くこと自体は間に合います。ただしその間も積分は溜まり続けるので、t_c を短くした制御器では行き過ぎが出ます。
 
 閉ループで測る（`control.run(SimPlant(Params()), design(Params(), 0.08), gate=SafetyGate(max_rate=...))`、公称の `Params()`・seed 既定）:
@@ -265,6 +276,12 @@ t_ms の始まりは、偽物を立ててから送るまでの時間で変わり
 
 **1. 減速比 n を 2 倍**
 答え: b = 0 なら K は 1/2 倍、τ は 1/4 倍。`first_order(replace(m, n=...), j_eff)` で n = 1 は (K, τ) = (30.0, 0.0673)、n = 2 は (15.0, 0.01683)。
+<!-- docs_check: output uv run python -c "from dataclasses import replace; from physlearn import motor; m,j=motor.mujoco_model(); [print(f'n={n}  K {k:.1f}  tau {t:.4g}') for n in (1.0, 2.0) for k,t in [motor.first_order(replace(m,n=n),j)]]" -->
+```
+n=1.0  K 30.0  tau 0.0673
+n=2.0  K 15.0  tau 0.01683
+```
+
 なぜか: `K = n·Kt·V/(n²·Kt·Ke)` は n に反比例し、`τ = J_eff·R/(n²·Kt·Ke)` は n² に反比例します。
 
 **2. 荷物 0.1 kg を前端 (x = +0.06) に**
@@ -334,6 +351,16 @@ t_ms の始まりは、偽物を立ててから送るまでの時間で変わり
 | 0.04 s | 0.2487 | +0.049 | 1.2 | 8.242 |
 | 0.08 s | 0.2995 | +0.100 | 1.2 | 8.496 |
 
+表の τ と `yaw_gain` の出力:
+
+<!-- docs_check: output uv run python -c "from physlearn import sim_log; from physlearn.log import as_log; from physlearn.mismatch import HardPlant; from physlearn.sysid import identify; [print('delay', x, 'tau', format(e['motor_tau'], '.4f'), 'yaw_gain', format(e['yaw_gain'], '.3f')) for x in (0, 0.01, 0.04, 0.08) for e in [identify(as_log(sim_log(HardPlant(delay=x))))]]" -->
+```
+delay 0 tau 0.2011 yaw_gain 8.006
+delay 0.01 tau 0.2120 yaw_gain 8.061
+delay 0.04 tau 0.2487 yaw_gain 8.242
+delay 0.08 tau 0.2995 yaw_gain 8.496
+```
+
 τ の増えは遅延の約 1.2 倍です（一次遅れ 1 つに、むだ時間を押し込んで当てはめるので、遅延がそのまま τ の増えになるわけではありません）。ゲインも遅延とともに少し大きく出ます（遅延 0.08 s で +6 %）。0.2 s の時定数に 0.08 s の遅延が加わると、τ は 5 割増しに見えます。
 
 **2. `sag` を 0.1・0.27・0.4 で `drift`**
@@ -345,6 +372,16 @@ t_ms の始まりは、偽物を立ててから送るまでの時間で変わり
 | 0.1 | −0.0529 | 7.256 | 0.1984 | 0.53 |
 | 0.27 | −0.1562 | 6.026 | 0.1984 | 0.58 |
 | 0.4 | −0.2501 | 5.054 | 0.1958 | 0.63 |
+
+表の `drift`・`yaw_gain`・τ の出力:
+
+<!-- docs_check: output uv run python -c "from physlearn import sim_log; from physlearn.log import as_log; from physlearn.mismatch import HardPlant; from physlearn.sysid import identify; [print('sag', x, 'drift', format(e['drift'], '+.4f'), 'yaw_gain', format(e['yaw_gain'], '.3f'), 'tau', format(e['motor_tau'], '.4f')) for x in (0, 0.1, 0.27, 0.4) for e in [identify(as_log(sim_log(HardPlant(sag=x))))]]" -->
+```
+sag 0 drift -0.0003 yaw_gain 8.006 tau 0.2011
+sag 0.1 drift -0.0529 yaw_gain 7.256 tau 0.1984
+sag 0.27 drift -0.1562 yaw_gain 6.026 tau 0.1984
+sag 0.4 drift -0.2501 yaw_gain 5.054 tau 0.1958
+```
 
 予想の立て方: ゲインは 0 s から 13 s（`SAG_T`）まで直線で `1 − sag` まで落ち、その後は一定です。`drift` は「最後の 2 つの 0.35 の段（13〜17 s）」と「最初の 2 つ（5〜8 s、平均の時刻 6.5 s = 13 s の半分）」のゲインの比 − 1 です。最初の 2 つのゲインは `1 − sag/2`、最後の 2 つは `1 − sag` なので、`drift ≈ (1 − sag)/(1 − sag/2) − 1 = −(sag/2)/(1 − sag/2)`。sag = 0.1、0.27、0.4 で −0.053、−0.156、−0.250 と、走らせた値と合います。分母に sag が入るので比例ではなく、`drift / sag` は表の 0.53 → 0.58 → 0.63 と、sag が大きいほど大きくなります（式では 0.5 / (1 − sag/2)）。小さい sag では傾き約 −0.5 の直線に近く、sag が大きいと、最初の 2 つのゲインがすでに下がっているぶん、比が大きく出ます。
 式の中の 1/2 は、最初の 2 つの段の平均の時刻（6.5 s）が `SAG_T` = 13 s の半分だから出ます。最後の 2 つの段（13〜14 s、15〜16 s）はどちらも 13 s より後で、ゲインは `1 − sag` で一定です（実験は 17 s、電池は 13 s で使い切る設定。`mismatch.py` の `SAG_T` はそのまま 13 s で、15 章もそう書いています）。`SAG_T` を変えると式の 1/2 も変わるので、この式は `SAG_T = 13`・実験 17 s のときのものです。

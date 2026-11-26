@@ -68,6 +68,15 @@ def test_compare_ellipsis_blank_and_excerpt():
     assert compare(["c", "a 1"], ["a 1", "c"], excerpt=True) == ("a 1", "(見つからない)")
 
 
+def test_empty_excerpt_is_a_diff_not_a_match(tmp_path):
+    assert compare([], ["a"], excerpt=True) and compare(["", "..."], ["a"], excerpt=True)
+    assert compare(["a ..."], ["a 1"], excerpt=True) is None  # ... を含む行が 1 つでも実のある行なら従来どおり
+    md = tmp_path / "c.md"
+    md.write_text("<!-- docs_check: output uv run python -c \"print('a 1')\" -->\n```\n```\n\n"
+                  "<!-- docs_check: output uv run python -c \"print('a 1')\" -->\n```\n...\n```\n")
+    assert [r[2] for r in run_file(md, False)] == ["差", "差"]
+
+
 def test_auto_skip():
     assert auto_skip("uv run python -m physlearn.link id --port /dev/pts/1", False)
     assert auto_skip("uv run --extra mujoco physlearn x", False) and not auto_skip("uv run --extra mujoco physlearn x", True)

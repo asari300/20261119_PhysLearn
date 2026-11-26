@@ -146,6 +146,20 @@ gz だけを見る同定と制御では、この差は見えません。
 | `HardPlant()`（電池なし） | −0.0003 |
 | `HardPlant(sag=0.27)` | **−0.156**（後半の K が前半より約 16% 低い） |
 
+次の行で出せます。
+
+```bash
+uv run python -c "from physlearn import sim_log; from physlearn.log import as_log; from physlearn.mismatch import HardPlant, DEFAULTS; from physlearn.sysid import identify; d=lambda p: identify(as_log(sim_log(p)))['drift']; [print(n, format(d(p), '+.4f')) for n,p in (('HardPlant()', HardPlant()), ('HardPlant(sag=0.27)', HardPlant(sag=0.27)), ('全部入り', HardPlant(**DEFAULTS)))]"
+```
+
+出力:
+
+```
+HardPlant() -0.0003
+HardPlant(sag=0.27) -0.1562
+全部入り -0.1538
+```
+
 （上は `sysid.identify` が返す欄で、`mismatch.py` の `one` と同じ呼び方で出しました。遅延・左右差・IMU のずれも入った全部入り（`physlearn sim-log out.csv --plant hard` → `physlearn sysid`）では −0.154 でした。）
 電池の低下は、K とデッドバンドに飲み込まれるだけではなく、`drift` という 1 つの数字として見えるようになりました。ただし `drift` は「電池」と名指しはしません。K が時間とともに下がる、と言うだけです。原因が電池か、温度か、車輪の滑りかは、ほかの手がかりで分けます。
 同定された K（6.026）は、前半と後半をならした値なので、どの時点の機体にもぴったりは合いません。判定が「式の形が違う」になるのは、このためです。
