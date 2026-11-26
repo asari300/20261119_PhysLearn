@@ -197,13 +197,24 @@ def blocks(message: dict) -> list:
     return content if isinstance(content, list) else []
 
 
+SECRET_MAX = 256                                # 境目をまたぐ 1 つの秘密（メール・トークン・名前）の長さの上限の仮定
+
+
 def clip(s: str, n: int) -> str:
     s = s.rstrip()
-    # 境目をまたぐ断片が残らないよう、切る前に伏せ字を通す。ただし全文ではなく頭から n + 256 字まで（全文だと
-    # メールの規則が長い英数字の連なりで 2 乗の時間になる、S126 #2）。256 字より長い 1 つの秘密が境目をまたぐと断片が残る。
     if len(s) <= n:
         return redact(s)
-    return redact(s[:n + 256])[:n] + f"\n… （残り {len(s) - n:,} 字は生ログを参照）"
+    # 境目をまたぐ断片が残らないよう、切る前に伏せ字を通す。ただし全文ではなく頭の窓だけ（全文だと
+    # メールの規則が長い英数字の連なりで 2 乗の時間になる、S126 #2）。窓の末尾は秘密が切れた断片かもしれないので、
+    # 伏せ字を通した結果が n + SECRET_MAX 字以上になる（または全文を通し終える）まで窓を 2 倍にする。
+    # 絶対パスの並びのように大きく縮む文でも、断片は [:n] の外に出る。長い連なりは縮まないので 1 回で済む。
+    w = n + 1024
+    while True:
+        r = redact(s[:w])
+        if w >= len(s) or len(r) >= n + SECRET_MAX:
+            break
+        w *= 2
+    return r[:n] + f"\n… （残り {len(s) - n:,} 字は生ログを参照）"
 
 
 def render_user(rec: dict) -> list[str]:
