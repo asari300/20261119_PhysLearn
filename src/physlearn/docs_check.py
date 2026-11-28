@@ -2,9 +2,11 @@
 
     uv run python -m physlearn.docs_check [章のファイル ...] [--mujoco] [--strict]
 
-注意: 章の中のコマンドを、シェル (`shell=True`) でそのまま実行する。信頼できない章（第三者の PR）に対して回さない。
+実行: 章のコマンドはシェルに渡さない。`shlex.split` で引数に分けてそのまま実行する。引用符の外に `|`・`;`・`>`・`&`・
+     `$(...)`・`$VAR`・バッククォートを含むコマンドは「飛ばした」（シェルなら意味が変わるため）。語の先頭の `#` から行末までは注釈として落とす。
+     それでも章に書いたコードそのものは走る。信頼できない章（第三者の PR）に対して回さない。
 CI に入れるなら main への push だけ（`permissions: contents: read`・シークレット無し）。`--strict` は `uv run` で始まらない
-コマンドと `;`・`&&`・リダイレクト・`$(...)` を含むコマンドを飛ばすが、守りとしては不十分（`uv run` の引数は信用している）。
+コマンドを飛ばし、終了コードを見るが、守りとしては不十分（`uv run` の引数は信用している）。
 
 対象の書き方（章のコードブロックの形）:
   (i)  `$ ` で始まる行から始まるブロック: `$ ` の行がコマンド、次の `$ ` の行かブロックの終わりまでが期待する出力。
@@ -41,6 +43,7 @@ TARGETS = [*(sorted(ROOT.glob(f"doc/textbook/{n}-*.md"))[0] for n in
 NUM = re.compile(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 SKIP_MARK = re.compile(r"<!--\s*docs_check:\s*skip\b(.*?)-->")
 OUT_MARK = re.compile(r"<!--\s*docs_check:\s*output\s+(uv run\b.*?)\s*-->")
+SHELL_OP = re.compile(r"[;&|<>\$`\n]")
 
 
 @dataclass
@@ -167,14 +170,46 @@ def auto_skip(cmd, mujoco):
         return "mujoco なし"
 
 
+def outside_quotes(cmd):
+    """引用符の外にある文字を (位置, 文字) で返す。シェルの記号と # 注釈を、引用符の中と区別して見るため。"""
+    out, q, i = [], None, 0
+    while i < len(cmd):
+        c = cmd[i]
+        if q:
+            if c == "\\" and q == '"':  # 二重引用符の中の \" は引用符を閉じない
+                i += 2
+                continue
+            if c == q:
+                q = None
+        elif c in "'\"":
+            q = c
+        elif c == "\\":
+            i += 2
+            continue
+        else:
+            out.append((i, c))
+        i += 1
+    return out
+
+
+def shell_op(cmd):
+    """引用符の外にあるシェルの記号を 1 文字返す（無ければ None）。shell=False では意味が変わるので、その行は飛ばす。"""
+    m = SHELL_OP.search("".join(c for _, c in outside_quotes(cmd)))
+    return m and m.group(0)
+
+
+def strip_comment(cmd):
+    """行末の # 注釈を落とす（シェルと同じく、語の先頭の # から行末まで）。引用符の中の # と、語の途中の # は残す。"""
+    for i, c in outside_quotes(cmd):
+        if c == "#" and (i == 0 or cmd[i - 1] in " \t"):
+            return cmd[:i]
+    return cmd
+
+
 def unsafe(cmd):
-    """--strict: 実行してよくない形なら理由、よければ None。"""
+    """--strict: 実行してよくない形なら理由、よければ None。シェルの記号は既定で飛ばすので、ここでは uv run 以外を見る。"""
     if not cmd.startswith("uv run"):
         return "uv run 以外"
-    no_single = re.sub(r"'[^']*'", "", cmd)
-    no_quotes = re.sub(r'"[^"]*"', "", no_single)
-    if re.search(r"\$\(|`", no_single) or re.search(r";|&&|\|\||>|<", no_quotes):
-        return "uv run 以外の操作（; && > $( など）を含む"
 
 
 def run_file(path, mujoco, strict=False):
@@ -185,18 +220,25 @@ def run_file(path, mujoco, strict=False):
         for u in extract(Path(path).read_text()):
             out, why, ran, head, codes = [], None, False, u.cmds[0].split("\n")[0], []
             for cmd in u.cmds:
-                toks = cmd.split()
-                r = u.skip or auto_skip(cmd, mujoco) or (strict and unsafe(cmd)) or ("前のコマンドを飛ばした" if missing & set(toks) else None)
+                op = shell_op(cmd)  # 引用符の外のシェルの記号。shell=False では意味が変わるので、その行は飛ばす
+                try:
+                    argv = None if op else shlex.split(strip_comment(cmd))  # 行末の # 注釈は落とす
+                except ValueError:
+                    argv = None
+                bad_cmd = f"シェルの記号（{op}）を含む" if op else ("コマンドが空" if not argv else None)
+                toks = argv or cmd.split()
+                r = (u.skip or auto_skip(cmd, mujoco) or bad_cmd or (strict and unsafe(cmd))
+                     or ("前のコマンドを飛ばした" if missing & set(toks) else None))
                 if r:
                     why = why or r
                     missing |= {t for t in toks if re.fullmatch(r"[\w./-]+\.(csv|json)", t) and not (Path(d) / t).exists()}
                     continue
-                if cmd.startswith("uv run"):
-                    cmd = f"uv run --quiet --project {shlex.quote(str(ROOT))}" + cmd[len("uv run"):]
-                if cmd in cache:
-                    p = cache[cmd]
+                if argv[:2] == ["uv", "run"]:
+                    argv = ["uv", "run", "--quiet", "--project", str(ROOT)] + argv[2:]
+                if tuple(argv) in cache:
+                    p = cache[tuple(argv)]
                 else:
-                    p = cache[cmd] = subprocess.run(cmd, shell=True, cwd=d, env=env, text=True, capture_output=True, timeout=900)
+                    p = cache[tuple(argv)] = subprocess.run(argv, cwd=d, env=env, text=True, capture_output=True, timeout=900)
                 if not mujoco and ("No module named 'mujoco'" in p.stderr or "mujoco が入っていない" in p.stderr):
                     why = why or "mujoco なし"
                     continue
@@ -206,7 +248,7 @@ def run_file(path, mujoco, strict=False):
                     continue
                 codes.append(p.returncode)
                 out += (p.stdout + p.stderr).split("\n")
-                head = head if ran else cmd.split("\n")[0].replace(f" --quiet --project {shlex.quote(str(ROOT))}", "")
+                head = head if ran else cmd.split("\n")[0]
                 ran = True
             if u.expected is None:
                 continue
