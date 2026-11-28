@@ -17,7 +17,7 @@ cd .git-worktree/<topic> && uv sync
 - main に未コミットの変更があったら、止めてユーザーに伝える。勝手にコミットも stash もしない。
 - remote は GitHub の公開リポジトリ（`origin`）。締めは「main に `--no-ff` でマージ → `git push origin main` → `gh run watch` で CI の結果を確かめる」。
 - 完全に終わった worktree は、main に取り込み済みで未コミットの変更が無いことを確かめてから `git worktree remove` と `git branch -d` で片付ける。
-- CI（`.github/workflows/ci.yml`、main への push と手動実行）: `test`（`uv sync --locked` + `uv run pytest`）、`firmware`（XIAO nRF52840 Sense 向けスケッチのコンパイル、必須）、`firmware-mg24`（MG24 向け、落ちても全体は落とさない）、`docs`（章に貼った出力を `python -m physlearn.docs_check --mujoco` で走らせ直して比べる。章のコマンドを `shell=True` で実行するので main への push と手動実行だけ。件数は最後の 1 行）。`test` は教材の相対リンクが切れていないかも見る（`tests/test_links.py`）。
+- CI（`.github/workflows/ci.yml`、main への push と手動実行）: `test`（`uv sync --locked` + `uv run pytest`）、`firmware`（XIAO nRF52840 Sense 向けスケッチのコンパイル、必須）、`firmware-mg24`（MG24 向け、落ちても全体は落とさない）、`docs`（章に貼った出力を `python -m physlearn.docs_check --mujoco` で走らせ直して比べる。章に書いたコードはそのまま走るので main への push と手動実行だけ。件数は最後の 1 行）。`test` は教材の相対リンクが切れていないかも見る（`tests/test_links.py`）。
 
 ## 2. ディレクトリの意味
 

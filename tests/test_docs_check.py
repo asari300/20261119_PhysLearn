@@ -1,4 +1,8 @@
-from physlearn.docs_check import auto_skip, compare, extract, run_file, same, unsafe
+import pathlib
+import shutil
+import tempfile
+
+from physlearn.docs_check import auto_skip, compare, extract, run_file, same, shell_op, strip_comment, unsafe
 
 I = '''text
 <!-- docs_check: skip 長いので -->
@@ -88,12 +92,46 @@ def test_integers_must_match_exactly_but_decimals_keep_their_tolerance():
     assert same("x 0.12", "x 0.1204") and same("x 1e-3", "x 0.0012")  # 小数・指数の許容は従来どおり
 
 
-def test_unsafe_commands_for_strict_mode():
+def test_shell_operators_are_detected_only_outside_quotes():
+    assert shell_op("uv run x | head -3") == "|" and shell_op("uv run x; rm a") == ";"
+    assert shell_op("uv run x > out") == ">" and shell_op("uv run x $(id)") == "$" and shell_op("uv run x `id`") == "`"
+    assert shell_op('uv run python -c "print(1 > 0); x = 2"') is None  # 引用符の中は記号ではない
+    assert shell_op("uv run python -c 'print(\"$(x)\")'") is None
+    assert shell_op('uv run python -c "print(1)"  # 注釈') is None
+
+
+def test_strict_skips_commands_other_than_uv_run():
     assert unsafe("echo hi") == "uv run 以外" and unsafe("cat a | head") == "uv run 以外"
-    for bad in ("uv run x; rm a", "uv run x && y", "uv run x > out", "uv run x $(id)", "uv run x `id`"):
-        assert unsafe(bad), bad
-    for ok in ('uv run python -c "print(1 > 0); x = 2"', "uv run physlearn sysid a.csv", "uv run x | head -3", "uv run python -c 'print(\"$(x)\")'"):
-        assert unsafe(ok) is None, ok
+    assert unsafe("uv run physlearn sysid a.csv") is None
+
+
+def test_shell_operators_are_skipped_and_not_run():
+    d = pathlib.Path(tempfile.mkdtemp(prefix="s130-"))  # 名前に pytest が入ると auto_skip（試験は回さない）に当たる
+    try:
+        pwned = d / "pwned"
+        md = d / "c.md"
+        md.write_text(f'```\n$ uv run python -c "print(1)" > {pwned}\n1\n'
+                      f'$ uv run python -c "print(1)" | head -1\n1\n```\n')
+        r = run_file(md, False)
+        assert [x[2] for x in r] == ["飛ばした", "飛ばした"]
+        assert all("シェルの記号" in x[3] for x in r) and not pwned.exists()
+    finally:
+        shutil.rmtree(d)
+
+
+def test_comment_at_the_end_of_a_command_is_dropped(tmp_path):
+    assert strip_comment("uv run x a#b # c") == "uv run x a#b "  # 語の途中の # は残す（シェルと同じ）
+    assert strip_comment('uv run python -c "print(\'# x\')"') == 'uv run python -c "print(\'# x\')"'
+    md = tmp_path / "c.md"
+    md.write_text('```\n$ uv run python -c "print(1)"  # 注釈\n1\n```\n')
+    assert [x[2] for x in run_file(md, False)] == ["一致"]
+
+
+def test_plain_commands_still_run_without_a_shell(tmp_path):
+    md = tmp_path / "c.md"
+    md.write_text('```\n$ uv run python -c "open(\'a.csv\', \'w\').write(\'1\\n2\\n\')"\n'
+                  "$ head -1 a.csv\n1\n```\n")
+    assert [x[2] for x in run_file(md, False)] == ["一致", "一致"]
 
 
 def test_strict_flags_nonzero_exit_and_missing_file(tmp_path):
